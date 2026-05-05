@@ -208,6 +208,12 @@ def auth_status():
         })
     return jsonify({'authenticated': False})
 
+
+@app.route("/health")
+def healthcheck():
+    """Railway deployment probe endpoint."""
+    return jsonify({"ok": True}), 200
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
@@ -1581,7 +1587,37 @@ def _integrate_financialpulse(app: Flask, socketio: SocketIO) -> None:
         print(f"[FinancialPulse] Socket.IO handlers warning: {e}")
 
 
-_integrate_financialpulse(app, socketio)
+def _should_integrate_financialpulse_on_boot() -> bool:
+    force_enable = os.environ.get("MM_ENABLE_FINANCIALPULSE_ON_BOOT", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    is_railway = any(
+        (os.environ.get(k) or "").strip()
+        for k in ("RAILWAY_ENVIRONMENT", "RAILWAY_PROJECT_ID", "RAILWAY_SERVICE_ID")
+    )
+    return force_enable or not is_railway
+
+
+if _should_integrate_financialpulse_on_boot():
+    _integrate_financialpulse(app, socketio)
+else:
+    print(
+        "[FinancialPulse] Skipped during boot on Railway to improve startup healthcheck reliability. "
+        "Set MM_ENABLE_FINANCIALPULSE_ON_BOOT=1 to enable boot-time integration."
+    )
+
+    @app.route("/financialpulse")
+    @login_required
+    def financialpulse_boot_deferred():
+        flash(
+            "FinancialPulse boot-time integration is disabled on this deployment. "
+            "Set MM_ENABLE_FINANCIALPULSE_ON_BOOT=1 to enable it.",
+            "info",
+        )
+        return redirect(url_for("dashboard"))
+
 _ensure_rl_auto_train_thread()
 
 if __name__ == '__main__':
