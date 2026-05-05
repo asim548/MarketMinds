@@ -1,0 +1,16 @@
+.git/
+.venv/
+venv/
+__pycache__/
+runs/
+static/uploads/
+static/results/
+*.db
+*.log
+X_features_unified.csv
+unified_training_data.csv
+y_direction_unified.csv
+y_magnitude_unified.csv
+y_score_unified.csv
+financial_sentiment_v8.zip
+financial_sentiment_v8/financial_sentiment_v8/fyp_enhanced.zip
