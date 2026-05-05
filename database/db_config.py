@@ -16,16 +16,44 @@ class DatabaseConfig:
     BASE_DIR = Path(__file__).resolve().parent.parent
     DEFAULT_DB_PATH = BASE_DIR / "marketminds.db"
 
-    DATABASE_URL = os.environ.get("DATABASE_URL")
-    if not DATABASE_URL:
-        DATABASE_URL = f"sqlite:///{DEFAULT_DB_PATH}"
-
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    @staticmethod
+    def _resolved_database_url() -> str:
+        """
+        Prefer MARKETMINDS_DATABASE_URL if set (avoids Railway Postgres plugin
+        injecting DATABASE_URL when this app expects SQLite).
+
+        If DATABASE_URL is Postgres but no driver is installed, fall back to SQLite
+        so the process can boot and pass healthchecks.
+        """
+        explicit = (os.environ.get("MARKETMINDS_DATABASE_URL") or "").strip()
+        if explicit:
+            return explicit
+
+        url = (os.environ.get("DATABASE_URL") or "").strip()
+        if not url:
+            return f"sqlite:///{DatabaseConfig.DEFAULT_DB_PATH}"
+
+        if url.startswith(("postgres://", "postgresql://")):
+            try:
+                import psycopg  # noqa: F401
+            except ImportError:
+                try:
+                    import psycopg2  # noqa: F401
+                except ImportError:
+                    print(
+                        "[DB] DATABASE_URL is PostgreSQL but no psycopg/psycopg2 driver found; "
+                        "using local SQLite instead. Set MARKETMINDS_DATABASE_URL or install psycopg2-binary."
+                    )
+                    return f"sqlite:///{DatabaseConfig.DEFAULT_DB_PATH}"
+
+        return url
 
     @classmethod
     def get_config(cls):
         return {
-            "SQLALCHEMY_DATABASE_URI": cls.DATABASE_URL,
+            "SQLALCHEMY_DATABASE_URI": cls._resolved_database_url(),
             "SQLALCHEMY_TRACK_MODIFICATIONS": cls.SQLALCHEMY_TRACK_MODIFICATIONS,
         }
 
@@ -39,7 +67,7 @@ class DatabaseConfig:
         with app.app_context():
             db.create_all()
             cls._ensure_sqlite_google_sub_column()
-        print(f"[OK] Connected to SQLite: {cls.DATABASE_URL}")
+        print(f"[OK] Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
 
     @staticmethod
     def _ensure_sqlite_google_sub_column() -> None:

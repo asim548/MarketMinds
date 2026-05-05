@@ -59,6 +59,13 @@ from utils.pattern_recognition import PatternRecognizer
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY') or 'your_secret_key_here_market_minds_2024'
 app.config['SESSION_TYPE'] = 'filesystem'
+
+
+@app.route("/health")
+def healthcheck():
+    """Must stay lightweight — Railway probes this before routing traffic."""
+    return jsonify({"ok": True}), 200
+
 # Pick up template edits without restarting (dev-friendly; disable in strict production if needed)
 app.config['TEMPLATES_AUTO_RELOAD'] = os.environ.get('MARKETMINDS_DISABLE_TEMPLATE_RELOAD', '').lower() not in (
     '1',
@@ -207,12 +214,6 @@ def auth_status():
             'profile_picture': current_user.profile_picture or 'default_avatar.png'
         })
     return jsonify({'authenticated': False})
-
-
-@app.route("/health")
-def healthcheck():
-    """Railway deployment probe endpoint."""
-    return jsonify({"ok": True}), 200
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -1618,7 +1619,12 @@ else:
         )
         return redirect(url_for("dashboard"))
 
-_ensure_rl_auto_train_thread()
+_railway_env = bool(os.environ.get("RAILWAY_ENVIRONMENT", "").strip())
+_rl_on_railway = os.environ.get("RL_AUTO_TRAIN_ON_RAILWAY", "").strip().lower() in ("1", "true", "yes")
+if not _railway_env or _rl_on_railway:
+    _ensure_rl_auto_train_thread()
+else:
+    print("[RL auto-train] Skipped on Railway boot (set RL_AUTO_TRAIN_ON_RAILWAY=1 to enable).")
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
