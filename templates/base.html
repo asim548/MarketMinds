@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MarketMinds - AI-Powered Trading Platform</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=mm20260503c">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/financialpulse_theme_overrides.css') }}?v=mm20260504b">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('index') }}" class="nav-logo">
+                <div class="logo-icon">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <span>Market<span class="logo-accent">Minds</span></span>
+            </a>
+            <div class="nav-menu">
+                <ul class="nav-links">
+                    <li>
+                        <a href="/financialpulse" class="nav-link">
+                            <i class="fas fa-bolt"></i>
+                            FinancialPulse
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('dashboard') }}" class="nav-link">
+                            <i class="fas fa-chart-line"></i>
+                            Dashboard
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('ai_picks') }}" class="nav-link ai-picks-link">
+                            <i class="fas fa-medal"></i>
+                            AI Picks
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('rl_trading') }}" class="nav-link rl-nav-link" title="Reinforcement learning (Double DQN)">
+                            <i class="fas fa-robot"></i>
+                            RL
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('news_ai') }}" class="nav-link">
+                            <i class="fas fa-newspaper"></i>
+                            News AI
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('chart_ai') }}" class="nav-link">
+                            <i class="fas fa-chart-area"></i> Chart AI
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('pattern_recognition') }}" class="nav-link">
+                            <i class="fas fa-project-diagram"></i>
+                            Pattern Recognition
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('index') }}#features" class="nav-link">
+                            <i class="fas fa-star"></i>
+                            Features
+                        </a>
+                    </li>
+                </ul>
+                <div class="nav-auth">
+                    {% if current_user and current_user.is_authenticated %}
+                    <a href="{{ url_for('profile') }}" class="nav-user">
+                        {% if current_user.profile_picture and current_user.profile_picture != 'default_avatar.png' %}
+                        <img src="{{ url_for('static', filename='uploads/profiles/' + current_user.profile_picture) }}" alt="Profile" class="nav-profile-img">
+                        {% else %}
+                        <i class="fas fa-user-circle"></i>
+                        {% endif %}
+                        {{ current_user.username }}
+                    </a>
+                    <a href="{{ url_for('logout') }}" class="nav-link logout">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Logout
+                    </a>
+                    {% else %}
+                    <a href="{{ url_for('login') }}" class="nav-link">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Login
+                    </a>
+                    <a href="{{ url_for('signup') }}" class="nav-link signup">
+                        <i class="fas fa-user-plus"></i>
+                        Sign Up
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="nav-toggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for message in messages %}
+                    <div class="flash-message">
+                        <i class="fas fa-info-circle"></i>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-main">
+                <!-- Brand Section -->
+                <div class="footer-brand">
+                    <div class="footer-logo">
+                        <div class="logo-icon">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <span>Market<span class="logo-accent">Minds</span></span>
+                    </div>
+                    <p class="footer-tagline">AI-powered trading intelligence for smarter investment decisions.</p>
+                    <div class="footer-social">
+                        <a href="#" title="Twitter"><i class="fab fa-twitter"></i></a>
+                        <a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+                        <a href="#" title="GitHub"><i class="fab fa-github"></i></a>
+                        <a href="#" title="Discord"><i class="fab fa-discord"></i></a>
+                    </div>
+                </div>
+
+                <!-- Quick Links -->
+                <div class="footer-section">
+                    <h4 class="footer-title">Quick Links</h4>
+                    <ul class="footer-links">
+                        <li><a href="{{ url_for('index') }}"><i class="fas fa-home"></i> Home</a></li>
+                        <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-chart-line"></i> Dashboard</a></li>
+                        <li><a href="{{ url_for('index') }}#features"><i class="fas fa-star"></i> Features</a></li>
+                        {% if current_user and current_user.is_authenticated %}
+                        <li><a href="{{ url_for('profile') }}"><i class="fas fa-user"></i> My Profile</a></li>
+                        {% endif %}
+                    </ul>
+                </div>
+
+                <!-- AI Features -->
+                <div class="footer-section">
+                    <h4 class="footer-title">AI Features</h4>
+                    <ul class="footer-links">
+                        <li><a href="{{ url_for('ai_picks') }}"><i class="fas fa-medal"></i> AI Picks</a></li>
+                        <li><a href="{{ url_for('rl_trading') }}"><i class="fas fa-project-diagram"></i> RL Agent</a></li>
+                        <li><a href="{{ url_for('news_ai') }}"><i class="fas fa-newspaper"></i> News AI</a></li>
+                        <li><a href="{{ url_for('chart_ai') }}"><i class="fas fa-chart-area"></i> Chart AI</a></li>
+                        <li><a href="{{ url_for('pattern_recognition') }}"><i class="fas fa-project-diagram"></i> Pattern Recognition</a></li>
+                    </ul>
+                </div>
+
+                <!-- Contact & Support -->
+                <div class="footer-section">
+                    <h4 class="footer-title">Contact</h4>
+                    <ul class="footer-contact">
+                        <li><i class="fas fa-envelope"></i> support@marketminds.ai</li>
+                        <li><i class="fas fa-map-marker-alt"></i> Financial District, NY</li>
+                        <li><i class="fas fa-clock"></i> 24/7 AI Support</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-divider"></div>
+
+            <div class="footer-bottom">
+                <p>&copy; {{ now.year }} MarketMinds. All rights reserved.</p>
+                <div class="footer-legal">
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
+                    <a href="#">Disclaimer</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const navToggle = document.querySelector('.nav-toggle');
+        const navMenu = document.querySelector('.nav-menu');
+
+        navToggle.addEventListener('click', () => {
+            navToggle.classList.toggle('active');
+            navMenu.classList.toggle('active');
+        });
+
+        // Close menu on link click (mobile)
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', () => {
+                navToggle.classList.remove('active');
+                navMenu.classList.remove('active');
+            });
+        });
+    });
+    </script>
+</body>
+</html>

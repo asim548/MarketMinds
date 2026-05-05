@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/financialpulse_home.css') }}">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="fp-home">
+  <section class="fp-unified-hero">
+    <div class="fp-main">
+      <div class="fp-grid-2" style="margin-bottom:16px;">
+        <div class="fp-card">
+          <div class="fp-card-title">⚡ FinancialPulse Suite <span class="fp-badge">Primary</span></div>
+          <div class="fp-muted">Full industrial sentiment module with live tracker, AI signals, VIP alerts, backtesting, and risk controls.</div>
+          <div class="fp-hr"></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <a class="fp-btn fp-btn-primary" href="/financialpulse"><i class="fas fa-bolt"></i> Open FinancialPulse</a>
+            <a class="fp-btn" href="/financialpulse#tab-signals">AI Signals</a>
+            <a class="fp-btn" href="/financialpulse#tab-news">News</a>
+            <a class="fp-btn" href="/financialpulse#tab-backtest">Backtest</a>
+          </div>
+        </div>
+        <div class="fp-card fp-secondary">
+          <div class="fp-card-title">🧠 MarketMinds Tools <span class="fp-badge">Secondary</span></div>
+          <div class="fp-muted">Keep all MarketMinds functionality on the same port and use them as supporting tools.</div>
+          <div class="fp-hr"></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <a class="fp-btn" href="{{ url_for('dashboard') }}">Dashboard</a>
+            <a class="fp-btn" href="{{ url_for('ai_picks') }}">AI Picks</a>
+            <a class="fp-btn" href="{{ url_for('rl_trading') }}">RL Agent</a>
+            <a class="fp-btn" href="{{ url_for('news_ai') }}">News AI</a>
+            <a class="fp-btn" href="{{ url_for('chart_ai') }}">Chart AI</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Live Market Ticker (70% priority UI style) -->
+  <div class="fp-ticker-wrap" aria-label="Live market overview ticker">
+    <div class="fp-ticker-track" id="fp-price-bar"></div>
+  </div>
+
+  <!-- Tabs (News Sentiment + MarketMinds tools as secondary) -->
+  <div class="fp-tabs" role="tablist" aria-label="Homepage sections">
+    <div class="fp-tab active" data-tab="dashboard" role="tab" aria-selected="true">📊 FinancialPulse Dashboard</div>
+    <div class="fp-tab" data-tab="news" role="tab">📰 News Sentiment</div>
+    <div class="fp-tab" data-tab="marketminds" role="tab">🧰 MarketMinds Tools</div>
+  </div>
+
+  <div class="fp-main">
+    <!-- DASHBOARD (Primary focus) -->
+    <div class="fp-panel active" id="fp-tab-dashboard" role="tabpanel">
+      <div class="fp-grid-2" style="margin-bottom:16px;">
+        <div class="fp-card">
+          <div class="fp-card-title">📈 Market Sentiment Overview <span class="fp-badge">Live</span></div>
+          <div class="fp-muted" style="margin-bottom:10px;">
+            Built on MarketMinds live data (no endpoint changes). This chart visualizes index momentum from <code>/api/market_overview</code>.
+          </div>
+          <div style="position:relative;height:260px;">
+            <canvas id="fpSentimentChart"></canvas>
+          </div>
+          <div class="fp-hr"></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <a class="fp-btn fp-btn-primary" href="{{ url_for('dashboard') }}"><i class="fas fa-chart-line"></i> Open Full Dashboard</a>
+            <a class="fp-btn" href="{{ url_for('news_ai') }}"><i class="fas fa-newspaper"></i> Open News AI</a>
+          </div>
+        </div>
+
+        <div class="fp-card">
+          <div class="fp-card-title">🎯 AI Picks Preview <span class="fp-badge">Top BUY</span></div>
+          <div id="fp-ai-picks-preview"></div>
+        </div>
+      </div>
+
+      <div class="fp-grid-4" style="margin-bottom:16px;" id="fp-quick-actions">
+        <div class="fp-card">
+          <div class="fp-card-title">🧠 Chart AI</div>
+          <div class="fp-muted">Upload a chart and get SMC/ICT-style analysis.</div>
+          <div class="fp-hr"></div>
+          <a class="fp-btn fp-btn-primary" href="{{ url_for('chart_ai') }}">Open Chart AI</a>
+        </div>
+        <div class="fp-card">
+          <div class="fp-card-title">🧩 Pattern Recognition</div>
+          <div class="fp-muted">YOLO-powered candlestick pattern detection.</div>
+          <div class="fp-hr"></div>
+          <a class="fp-btn fp-btn-primary" href="{{ url_for('pattern_recognition') }}">Open Pattern AI</a>
+        </div>
+        <div class="fp-card">
+          <div class="fp-card-title">🏅 AI Picks</div>
+          <div class="fp-muted">Ranked BUY / HOLD suggestions from the hybrid model.</div>
+          <div class="fp-hr"></div>
+          <a class="fp-btn fp-btn-primary" href="{{ url_for('ai_picks') }}">Open AI Picks</a>
+        </div>
+        <div class="fp-card">
+          <div class="fp-card-title">📰 News AI</div>
+          <div class="fp-muted">Real-time news analysis & sentiment dashboard.</div>
+          <div class="fp-hr"></div>
+          <a class="fp-btn fp-btn-primary" href="{{ url_for('news_ai') }}">Open News AI</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEWS SENTIMENT (Primary module styling; MarketMinds page stays intact) -->
+    <div class="fp-panel" id="fp-tab-news" role="tabpanel">
+      <div class="fp-grid-2b" style="margin-bottom:16px;">
+        <div class="fp-card">
+          <div class="fp-card-title">🔥 News Sentiment Tabs <span class="fp-badge">Module</span></div>
+          <div class="fp-muted">
+            Use the full News AI experience for live analysis; this homepage panel is a fast entry point.
+          </div>
+          <div class="fp-hr"></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <a class="fp-btn fp-btn-primary" href="{{ url_for('news_ai') }}"><i class="fas fa-newspaper"></i> Open News AI Dashboard</a>
+            <a class="fp-btn" href="{{ url_for('dashboard') }}"><i class="fas fa-chart-line"></i> Back to Market Dashboard</a>
+          </div>
+        </div>
+
+        <div class="fp-card">
+          <div class="fp-card-title">🧠 Workflow</div>
+          <div class="fp-muted">
+            1) Browse headlines → 2) Sentiment scoring → 3) Translate to watchlist actions.
+          </div>
+          <div class="fp-hr"></div>
+          <div class="fp-muted">
+            Nothing here changes endpoints or model output; it just re-presents navigation in a FinancialPulse-style shell.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MARKETMINDS (Secondary visual priority) -->
+    <div class="fp-panel fp-secondary" id="fp-tab-marketminds" role="tabpanel">
+      <div class="fp-card" style="margin-bottom:16px;">
+        <div class="fp-card-title">🧰 MarketMinds Features <span class="fp-badge">Secondary</span></div>
+        <div class="fp-muted">
+          All features remain available; the homepage just prioritizes the sentiment dashboard UI.
+        </div>
+        <div class="fp-hr"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <a class="fp-btn" href="{{ url_for('chart_ai') }}">Chart AI</a>
+          <a class="fp-btn" href="{{ url_for('pattern_recognition') }}">Pattern Recognition</a>
+          <a class="fp-btn" href="{{ url_for('ai_picks') }}">AI Picks</a>
+          <a class="fp-btn" href="{{ url_for('rl_trading') }}">RL Agent</a>
+          <a class="fp-btn" href="{{ url_for('dashboard') }}">Dashboard</a>
+        </div>
+      </div>
+
+      <!-- Keep the original MarketMinds sections available via anchors -->
+      <div class="fp-card">
+        <div class="fp-card-title">📌 Original Homepage Sections</div>
+        <div class="fp-muted">
+          For the legacy landing experience, use these deep links:
+        </div>
+        <div class="fp-hr"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <a class="fp-btn" href="{{ url_for('index') }}#features">Features</a>
+          <a class="fp-btn" href="{{ url_for('index') }}#news">News Section</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/financialpulse_home.js') }}"></script>
+<script>
+  // Lightweight chart using existing /api/market_overview (no endpoint changes).
+  document.addEventListener('DOMContentLoaded', async () => {
+    const canvas = document.getElementById('fpSentimentChart');
+    if (!canvas || !window.Chart) return;
+
+    try {
+      const res = await fetch('/api/market_overview');
+      const data = await res.json();
+      const rows = Array.isArray(data) ? data : [];
+
+      const labels = rows.map(r => r.symbol);
+      const values = rows.map(r => typeof r.change_percent === 'number' ? r.change_percent : 0);
+
+      const colors = values.map(v => v >= 0 ? 'rgba(0, 230, 118, 0.85)' : 'rgba(255, 68, 68, 0.85)');
+
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Daily % Change',
+            data: values,
+            backgroundColor: colors,
+            borderColor: colors,
+            borderWidth: 1,
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.raw >= 0 ? '+' : ''}${ctx.raw.toFixed(2)}%`
+              }
+            }
+          },
+          scales: {
+            x: { ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted') }, grid: { color: 'rgba(30,45,69,0.35)' } },
+            y: { ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted') }, grid: { color: 'rgba(30,45,69,0.35)' } }
+          }
+        }
+      });
+    } catch (e) {
+      // silently ignore; homepage still works
+    }
+  });
+</script>
+{% endblock %}

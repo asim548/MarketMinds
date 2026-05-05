@@ -1,0 +1,424 @@
+/* Global FinancialPulse theme overrides (high-level, minimal risk).
+   Purpose: visually align MarketMinds pages to the financial_sentiment_v8 palette
+   without touching backend logic or rewriting large legacy CSS. */
+
+/* Ensure base surfaces match */
+body{
+  background: var(--primary-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Navbar + footer */
+.navbar{
+  background: rgba(17, 24, 39, 0.92) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+.nav-links{
+  background: rgba(0, 212, 255, 0.06) !important;
+  border: 1px solid rgba(30, 45, 69, 0.8) !important;
+  flex-wrap: wrap !important;
+  max-width: 100% !important;
+  justify-content: center !important;
+}
+.nav-container{
+  flex-wrap: wrap !important;
+  row-gap: 0.5rem !important;
+}
+.nav-menu{
+  flex-wrap: wrap !important;
+  justify-content: flex-end !important;
+  max-width: 100% !important;
+}
+.nav-link.rl-nav-link{
+  border: 1px solid rgba(124, 58, 237, 0.35) !important;
+  background: rgba(124, 58, 237, 0.08) !important;
+}
+.nav-link.rl-nav-link:hover{
+  border-color: rgba(0, 212, 255, 0.45) !important;
+}
+.rl-cross-link{
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: #00d4ff !important;
+  text-decoration: none !important;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.35);
+  transition: color 0.2s, border-color 0.2s;
+}
+.rl-cross-link:hover{
+  color: #67e8f9 !important;
+  border-bottom-color: rgba(103, 232, 249, 0.6);
+}
+.nav-link{
+  color: var(--text-secondary) !important;
+}
+.nav-link:hover{
+  color: var(--text-primary) !important;
+  background: rgba(26, 34, 54, 0.7) !important;
+}
+.logo-icon{
+  background: var(--gradient-primary) !important;
+  color: #001018 !important;
+  box-shadow: 0 4px 18px rgba(0, 212, 255, 0.18) !important;
+}
+.footer{
+  background: rgba(17, 24, 39, 0.92) !important;
+  border-top: 1px solid var(--border-color) !important;
+}
+
+/* Buttons */
+.btn,
+.feature-btn,
+button,
+input[type="submit"]{
+  border-color: rgba(30, 45, 69, 0.9) !important;
+}
+.btn-primary,
+.btn-glow,
+.nav-link.signup{
+  background: var(--primary-gold) !important;
+  color: #001018 !important;
+  border-color: transparent !important;
+}
+.btn-secondary{
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+}
+.btn-secondary:hover{
+  background: rgba(26, 34, 54, 0.75) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Cards + sections */
+.feature-card,
+.news-card,
+.tech-item,
+.dashboard-card,
+.auth-container,
+.profile-card{
+  background: var(--card-bg) !important;
+  border: 1px solid var(--border-color) !important;
+}
+.badge{
+  background: rgba(124, 58, 237, 0.22) !important;
+  border: 1px solid rgba(124, 58, 237, 0.28) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Links / accents (replace “gold” feel with cyan/purple) */
+a{
+  text-decoration-color: rgba(0, 212, 255, 0.35);
+}
+.logo-accent,
+.gradient-text{
+  background: var(--gradient-primary) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+/* Positive/negative tokens */
+.positive{ color: var(--positive) !important; }
+.negative{ color: var(--negative) !important; }
+
+/* ── RL Agent page (always loaded; survives cache vs inline head) ───────── */
+.rl-page{
+  --rl-accent: #00d4ff;
+  --rl-violet: #a78bfa;
+  --rl-card: rgba(26, 34, 54, 0.88);
+}
+.rl-page .rl-hero{ margin-bottom: 2rem; }
+.rl-page .rl-hero h1{
+  font-size: clamp(1.75rem, 4vw, 2.25rem) !important;
+  letter-spacing: -0.02em !important;
+}
+.rl-page .rl-lead{
+  color: var(--text-secondary) !important;
+  font-size: 1.05rem !important;
+  max-width: 38rem !important;
+  line-height: 1.55 !important;
+  margin-top: 0.75rem !important;
+}
+.rl-page .rl-stats-row{
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 1rem !important;
+  margin-top: 1.5rem !important;
+}
+.rl-page .rl-stat-pill{
+  background: var(--rl-card) !important;
+  border: 1px solid rgba(0, 212, 255, 0.22) !important;
+  border-radius: 14px !important;
+  padding: 0.85rem 1.15rem !important;
+  min-width: 7.5rem !important;
+  text-align: center !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.25) !important;
+}
+.rl-page .rl-stat-pill .v{
+  font-size: 1.35rem !important;
+  font-weight: 700 !important;
+  color: var(--rl-accent) !important;
+}
+.rl-page .rl-stat-pill .v.ok{ color: #4ade80 !important; }
+.rl-page .rl-stat-pill .v.muted{ color: #94a3b8 !important; }
+.rl-page .rl-stat-pill .l{
+  font-size: 0.72rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: var(--text-muted) !important;
+  margin-top: 0.35rem !important;
+}
+.rl-page .rl-panel{
+  background: var(--rl-card) !important;
+  border: 1px solid rgba(30, 45, 69, 0.9) !important;
+  border-radius: 18px !important;
+  padding: 1.5rem 1.75rem !important;
+  margin-bottom: 1.25rem !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.28) !important;
+}
+.rl-page .rl-panel h2{
+  font-size: 1.15rem !important;
+  margin: 0 0 0.35rem !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  color: var(--text-primary) !important;
+}
+.rl-page .rl-panel .rl-panel-desc{
+  color: var(--text-muted) !important;
+  font-size: 0.92rem !important;
+  margin: 0 0 1.25rem !important;
+  line-height: 1.5 !important;
+}
+.rl-page .rl-field-row{
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: flex-end !important;
+  gap: 1rem 1.5rem !important;
+  margin-bottom: 1rem !important;
+}
+.rl-page .rl-field{
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.35rem !important;
+}
+.rl-page .rl-field label{
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: var(--text-muted) !important;
+}
+.rl-page .rl-input{
+  width: 5.5rem !important;
+  padding: 0.65rem 0.85rem !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(0, 212, 255, 0.28) !important;
+  background: rgba(15, 23, 42, 0.95) !important;
+  color: var(--text-primary) !important;
+  font-size: 0.95rem !important;
+}
+.rl-page .rl-input.wide{ width: 8.5rem !important; }
+.rl-page .rl-input:focus{
+  outline: none !important;
+  border-color: var(--rl-accent) !important;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.15) !important;
+}
+/* Override generic button styling from this file */
+.rl-page button.rl-btn-primary{
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  padding: 0.78rem 1.65rem !important;
+  border-radius: 12px !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-weight: 600 !important;
+  font-size: 0.95rem !important;
+  background: linear-gradient(135deg, #22d3ee 0%, #0891b2 100%) !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 22px rgba(34, 211, 238, 0.4) !important;
+  transition: transform 0.15s, box-shadow 0.15s !important;
+}
+.rl-page button.rl-btn-primary:hover:not(:disabled){
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 28px rgba(34, 211, 238, 0.5) !important;
+}
+.rl-page button.rl-btn-primary:disabled{
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+}
+.rl-page button.rl-btn-secondary{
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  padding: 0.68rem 1.2rem !important;
+  border-radius: 11px !important;
+  cursor: pointer !important;
+  font-weight: 600 !important;
+  font-size: 0.88rem !important;
+  background: rgba(124, 58, 237, 0.18) !important;
+  color: #c4b5fd !important;
+  border: 1px solid rgba(167, 139, 250, 0.45) !important;
+  transition: background 0.2s, border-color 0.2s !important;
+}
+.rl-page button.rl-btn-secondary:hover:not(:disabled){
+  background: rgba(124, 58, 237, 0.3) !important;
+  border-color: rgba(196, 181, 253, 0.65) !important;
+  color: #ede9fe !important;
+}
+.rl-page .rl-msg{
+  font-size: 0.88rem !important;
+  color: var(--text-muted) !important;
+  min-height: 1.25rem !important;
+}
+.rl-page .rl-msg.ok{ color: #4ade80 !important; }
+.rl-page .rl-msg--error{
+  color: #f87171 !important;
+  margin-top: 0.5rem !important;
+  line-height: 1.45 !important;
+}
+.rl-page .rl-metric-hint{
+  font-size: 0.78rem !important;
+  color: var(--text-muted) !important;
+  margin: 0.35rem 0 0 !important;
+  max-width: 28rem !important;
+  line-height: 1.4 !important;
+}
+.rl-page .rl-metric-hint--strong{
+  color: #94a3b8 !important;
+  font-size: 0.8rem !important;
+}
+.rl-page .rl-where-results{
+  font-size: 0.8rem !important;
+  color: var(--text-muted) !important;
+  line-height: 1.45 !important;
+  margin: 0.35rem 0 0.75rem !important;
+  max-width: 40rem !important;
+}
+.rl-page details.rl-advanced{
+  margin-top: 0.75rem !important;
+  border-top: 1px solid rgba(30, 45, 69, 0.75) !important;
+  padding-top: 1rem !important;
+}
+.rl-page details.rl-advanced summary{
+  cursor: pointer !important;
+  font-size: 0.88rem !important;
+  color: var(--rl-accent) !important;
+  font-weight: 600 !important;
+  list-style: none !important;
+  user-select: none !important;
+}
+.rl-page details.rl-advanced summary::-webkit-details-marker{ display: none !important; }
+.rl-page .rl-toggle-grid{
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+  gap: 0.7rem 1.25rem !important;
+  margin-top: 1rem !important;
+}
+.rl-page .rl-toggle{
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.55rem !important;
+  font-size: 0.88rem !important;
+  color: var(--text-secondary) !important;
+  cursor: pointer !important;
+}
+.rl-page .rl-toggle input{ accent-color: var(--rl-accent) !important; width: 1.05rem !important; height: 1.05rem !important; }
+.rl-page .rl-safeguard-row{
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 1rem 1.35rem !important;
+  align-items: center !important;
+}
+.rl-page .rl-status-badge{
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  padding: 0.45rem 0.95rem !important;
+  border-radius: 999px !important;
+  font-size: 0.84rem !important;
+  font-weight: 600 !important;
+}
+.rl-page .rl-status-badge.safe{
+  background: rgba(74, 222, 128, 0.12) !important;
+  color: #4ade80 !important;
+  border: 1px solid rgba(74, 222, 128, 0.38) !important;
+}
+.rl-page .rl-status-badge.risk{
+  background: rgba(248, 113, 113, 0.12) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(248, 113, 113, 0.38) !important;
+}
+.rl-page .rl-model-tag{
+  font-size: 0.8rem !important;
+  color: var(--text-muted) !important;
+  padding: 0.4rem 0.75rem !important;
+  background: rgba(0,0,0,0.22) !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(30, 45, 69, 0.6) !important;
+}
+.rl-page .no-signals-placeholder{
+  border-radius: 16px !important;
+  border: 1px dashed rgba(0, 212, 255, 0.28) !important;
+  background: rgba(15, 23, 42, 0.45) !important;
+}
+
+/* RL page v3 layout helpers */
+.rl-page .rl-hero--compact.page-header-ai{
+  padding: 2rem 2.25rem !important;
+  margin-bottom: 1.5rem !important;
+}
+.rl-page .rl-signals-wrap.signals-dashboard{
+  gap: 1.35rem !important;
+  padding-bottom: 2.5rem !important;
+}
+.rl-page .rl-panel--accent{
+  border-top: 3px solid rgba(45, 212, 191, 0.55) !important;
+}
+.rl-page .rl-panel--violet{
+  border-top: 3px solid rgba(167, 139, 250, 0.5) !important;
+}
+.rl-page .rl-panel-head{
+  font-size: 1.12rem !important;
+  margin: 0 0 1rem !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  color: var(--text-primary) !important;
+}
+.rl-page .rl-label-hint{
+  font-weight: 400 !important;
+  opacity: 0.72 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 0.68rem !important;
+}
+.rl-page .rl-field--btn{
+  align-self: flex-end !important;
+}
+.rl-page .rl-panel-desc--tight{
+  margin: 0 0 1rem !important;
+  font-size: 0.88rem !important;
+  line-height: 1.45 !important;
+}
+.rl-page .rl-msg--reason{
+  margin-top: 0.75rem !important;
+}
+.rl-page .rl-placeholder-soft.no-signals-placeholder{
+  border-style: solid !important;
+  border-color: rgba(30, 45, 69, 0.75) !important;
+  background: rgba(15, 23, 42, 0.55) !important;
+}
+
+/* ID-scoped buttons (parent class optional) */
+button#rlCircuitReset.rl-btn-secondary,
+button#rlCircuitReset{
+  font-family: inherit !important;
+}
+

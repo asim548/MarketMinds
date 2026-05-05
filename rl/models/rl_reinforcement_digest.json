@@ -1,0 +1,10 @@
+{
+  "generated_at_utc": "2026-05-04T13:04:54.036420+00:00",
+  "paper_trades_file": "paper_trades.json",
+  "paper_trades_total": 0,
+  "paper_trades_recent_72h": 0,
+  "lessons": [
+    "No paper-trade log yet. As the app records RL snapshots, summaries here will call out drawdowns and action skew. Training still runs on the unified dataset automatically.",
+    "Validation max drawdown was about 63.9% \u2014 high drawdowns are expensive in the RL reward; retraining pushes toward smoother equity curves."
+  ]
+}

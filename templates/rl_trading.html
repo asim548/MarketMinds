@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block head %}
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/financialpulse_home.css') }}?v=mm20260503c">
+<style>
+  #rlCircuitReset{
+    display:inline-flex!important;align-items:center!important;gap:.5rem!important;
+    padding:.75rem 1.35rem!important;border-radius:12px!important;cursor:pointer!important;font-weight:600!important;font-size:.9rem!important;
+    background:linear-gradient(135deg,rgba(139,92,246,.35),rgba(124,58,237,.2))!important;color:#e9d5ff!important;
+    border:1px solid rgba(196,181,253,.55)!important;box-shadow:0 2px 16px rgba(124,58,237,.25)!important;
+    transition:background .2s,border-color .2s,transform .15s!important;
+  }
+  #rlCircuitReset:hover:not(:disabled){background:linear-gradient(135deg,rgba(167,139,250,.4),rgba(109,40,217,.35))!important;
+    border-color:rgba(237,233,254,.75)!important;transform:translateY(-1px)!important;}
+  .rl-lesson-list{margin:.75rem 0 0 1.1rem;padding:0;color:#cbd5e1;line-height:1.55;font-size:.92rem;}
+  .rl-lesson-list li{margin-bottom:.5rem;}
+  .rl-auto-card{
+    margin-top:1rem;padding:1rem 1.15rem;border-radius:16px;
+    background:linear-gradient(145deg,rgba(15,23,42,.92),rgba(30,41,59,.75));
+    border:1px solid rgba(45,212,191,.22);box-shadow:0 8px 32px rgba(0,0,0,.25);
+  }
+  .rl-auto-top{display:flex;flex-wrap:wrap;align-items:center;gap:.65rem 1rem;margin-bottom:.85rem;}
+  .rl-auto-badge{
+    display:inline-flex;align-items:center;gap:.35rem;padding:.28rem .75rem;border-radius:999px;
+    font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  }
+  .rl-auto-badge.on{background:rgba(45,212,191,.18);color:#5eead4;border:1px solid rgba(45,212,191,.35);}
+  .rl-auto-badge.off{background:rgba(248,113,113,.12);color:#fca5a5;border:1px solid rgba(248,113,113,.28);}
+  .rl-auto-interval{font-size:.95rem;font-weight:600;color:#f1f5f9;}
+  .rl-auto-interval span{color:#94a3b8;font-weight:500;}
+  .rl-auto-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.75rem;}
+  .rl-auto-cell{
+    padding:.65rem .85rem;border-radius:12px;background:rgba(15,23,42,.55);
+    border:1px solid rgba(51,65,85,.6);
+  }
+  .rl-auto-cell .k{display:block;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:.2rem;}
+  .rl-auto-cell .v{font-size:.88rem;font-weight:600;color:#e2e8f0;font-variant-numeric:tabular-nums;}
+  .rl-auto-hint{margin:.85rem 0 0;font-size:.78rem;color:#64748b;line-height:1.45;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ai-picks-container rl-page" data-mm-rl-ui="trading-v3" id="mmRlDashboardRoot">
+    <div class="page-header-ai rl-hero rl-hero--compact">
+        <div class="header-content">
+            <div class="title-section">
+                <div class="ai-badge-pro">
+                    <i class="fas fa-robot"></i>
+                    RL agent
+                </div>
+                <h1>
+                    <i class="fas fa-brain" style="color: var(--rl-accent);"></i>
+                    Policy &amp; training
+                </h1>
+                <p class="rl-lead">Numbers in the header are <strong>validation</strong> (offline), not live P&amp;L. The model <strong>retrains automatically</strong> on a daily schedule.</p>
+            </div>
+            <div class="header-meta" style="align-self: flex-start;">
+                <div class="rl-stats-row">
+                    <div class="rl-stat-pill">
+                        <div class="v {% if trained %}ok{% else %}muted{% endif %}">{% if trained %}Ready{% else %}New{% endif %}</div>
+                        <div class="l">Model</div>
+                    </div>
+                    <div class="rl-stat-pill">
+                        <div class="v">{% if val_metrics %}{{ "%.2f"|format(val_metrics.sharpe_ratio|default(0)) }}{% else %}—{% endif %}</div>
+                        <div class="l">Sharpe (val)</div>
+                    </div>
+                    <div class="rl-stat-pill">
+                        <div class="v">{% if val_metrics %}{{ "%.1f"|format(val_metrics.total_return_pct|default(0)) }}%{% else %}—{% endif %}</div>
+                        <div class="l">Return (val)</div>
+                    </div>
+                </div>
+                {% if not val_metrics %}
+                <p class="rl-metric-hint">No validation snapshot yet — the first automatic run will start after the startup delay.</p>
+                {% endif %}
+                {% if metrics_generated_at_utc %}
+                <p class="rl-metric-hint rl-metric-hint--strong">Metrics file from training (UTC): {{ metrics_generated_at_utc }}{% if rl_metrics_n_val is not none %} · val rows: {{ rl_metrics_n_val }}{% endif %}</p>
+                {% endif %}
+                <div class="last-updated" style="margin-top:1rem;">
+                    <i class="fas fa-clock"></i> {{ last_updated }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="signals-dashboard rl-signals-wrap">
+        <div class="rl-panel rl-panel--accent">
+            <h2 class="rl-panel-head"><i class="fas fa-sync-alt" style="color:var(--rl-accent);"></i> Automatic reinforcement</h2>
+            <p class="rl-panel-desc rl-panel-desc--tight" style="margin-bottom:0;">Trains on your saved market history on a timer — no button needed.</p>
+            {% if rl_auto_train %}
+            <div class="rl-auto-card">
+                <div class="rl-auto-top">
+                    {% if rl_auto_train.enabled %}
+                    <span id="rlAutoBadge" class="rl-auto-badge on"><i class="fas fa-circle" style="font-size:.45rem;"></i> On</span>
+                    {% else %}
+                    <span id="rlAutoBadge" class="rl-auto-badge off">Off</span>
+                    {% endif %}
+                    <div id="rlAutoIntervalLine" class="rl-auto-interval">Every <span>{{ rl_auto_train.interval_label }}</span></div>
+                </div>
+                <div class="rl-auto-grid">
+                    <div class="rl-auto-cell">
+                        <span class="k">Last run</span>
+                        <span id="rlAutoLastRun" class="v">{% if rl_auto_train.last_run_display %}{{ rl_auto_train.last_run_display }}{% else %}—{% endif %}</span>
+                    </div>
+                    <div class="rl-auto-cell">
+                        <span class="k">Next run</span>
+                        <span id="rlAutoNextRun" class="v">{% if rl_auto_train.next_due_display %}{{ rl_auto_train.next_due_display }}{% else %}—{% endif %}</span>
+                    </div>
+                </div>
+                <p class="rl-auto-hint">Tip: reload this page after a run finishes to refresh the header. <strong>Suggested actions</strong> need live prices.</p>
+            </div>
+            {% endif %}
+            <p id="rlTrainingNotice" class="rl-msg ok" style="display:none;margin-top:0.75rem;" aria-live="polite"></p>
+            {% if rl_last_run and not rl_last_run.ok and rl_last_run.error %}
+            <p class="rl-msg rl-msg--error" style="margin-top:0.75rem;" role="alert"><strong>Last training run failed:</strong> {{ rl_last_run.error }}</p>
+            {% endif %}
+        </div>
+
+        {% if rl_digest and rl_digest.lessons %}
+        <div class="rl-panel rl-panel--violet">
+            <h2 class="rl-panel-head"><i class="fas fa-lightbulb" style="color:var(--rl-violet);"></i> What we noticed</h2>
+            <p class="rl-panel-desc rl-panel-desc--tight">Short takeaways from activity and validation — not advice.</p>
+            <ul class="rl-lesson-list">
+                {% for line in rl_digest.lessons %}
+                <li>{{ line }}</li>
+                {% endfor %}
+            </ul>
+            {% if rl_digest.generated_at_utc %}
+            <p class="rl-metric-hint">Updated {{ (rl_digest.generated_at_utc[:19])|replace('T', ' ') }} UTC</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="rl-panel rl-panel--violet">
+            <h2 class="rl-panel-head"><i class="fas fa-shield-alt" style="color:var(--rl-violet);"></i> Safeguards</h2>
+            <p class="rl-panel-desc rl-panel-desc--tight">Auto-pause on heavy simulated drawdowns. Clear pause anytime.</p>
+            <div class="rl-safeguard-row">
+                {% if circuit_state.halt_buy %}
+                <span class="rl-status-badge risk"><i class="fas fa-hand-paper"></i> Buys paused</span>
+                {% else %}
+                <span class="rl-status-badge safe"><i class="fas fa-check-circle"></i> Buys allowed</span>
+                {% endif %}
+                {% if checkpoint_meta and checkpoint_meta.version %}
+                <span class="rl-model-tag">Checkpoint {{ checkpoint_meta.version }}</span>
+                {% endif %}
+                <button type="button" id="rlCircuitReset" class="rl-btn-secondary"><i class="fas fa-redo-alt"></i> Reset pause</button>
+                <span id="rlCircuitMsg" class="rl-msg"></span>
+            </div>
+            {% if circuit_state.reason %}
+            {% set _r = circuit_state.reason %}
+            <p class="rl-msg rl-msg--reason">{% if _r.startswith('auto:') %}{{ _r[5:].strip() }}{% else %}{{ _r }}{% endif %}</p>
+            {% endif %}
+        </div>
+
+        {% if not trained %}
+        <div class="no-signals-placeholder rl-placeholder-soft">
+            <i class="fas fa-magic"></i>
+            <p>No model yet. Wait for the automatic training pass — this page will show metrics after the first successful run.</p>
+        </div>
+        {% endif %}
+
+        {% if rl_signals %}
+        <div class="signal-section stocks-section" style="margin-top:2rem;">
+            <div class="section-header">
+                <h2 class="stocks-title"><i class="fas fa-bolt"></i> Suggested actions</h2>
+                <p>From your latest model and live snapshot.</p>
+            </div>
+            <div class="signal-grid">
+                {% for s in rl_signals %}
+                {% set is_buy = s.action == 'BUY' %}
+                {% set is_hold = s.action == 'HOLD' %}
+                {% set signal_class = 'buy-color' if is_buy else 'sell-color' if s.action == 'SELL' else 'neutral-color' %}
+                <div class="signal-card stocks {{ 'neutral' if is_hold else '' }}">
+                    <div class="card-header">
+                        <span class="signal-type {{ signal_class }}">{{ s.action }}</span>
+                        <span class="asset-category">{{ s.category }}</span>
+                    </div>
+                    <div class="asset-info">
+                        <h3>{{ s.symbol }}</h3>
+                        <p>{{ s.name }}</p>
+                    </div>
+                    <div class="price-score" style="grid-template-columns: 1fr 1fr;">
+                        <div class="metric">
+                            <span class="value">{{ s.price if s.price is not none else '—' }}</span>
+                            <span class="label">Price</span>
+                        </div>
+                        <div class="metric">
+                            <span class="value neutral-color">{{ "%.0f"|format(s.confidence|default(55)) }}%</span>
+                            <span class="label">Confidence</span>
+                        </div>
+                    </div>
+                    <div class="confidence-meter-small">
+                        {% set conf = "%.0f"|format(s.confidence|default(55)) %}
+                        <div class="confidence-fill {{ 'positive' if is_buy else 'negative' if s.action == 'SELL' else 'neutral' }}" style="width: {{ conf }}%;"></div>
+                        <span class="confidence-value">{{ conf }}%</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% elif trained %}
+        <div class="no-signals-placeholder rl-placeholder-soft">
+            <i class="fas fa-chart-line"></i>
+            <p>Model ready. No live rows this load — try again shortly.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/rl_trading.js') }}?v=mm20260504autoui1" defer></script>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="ai-picks-container">
+    <div class="page-header-ai">
+        <div class="header-content">
+            <div class="title-section">
+                <div class="ai-badge-pro" style="background-color: var(--negative);">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    MODEL ERROR
+                </div>
+                <h1>
+                    <i class="fas fa-chart-line"></i>
+                    AI Prediction System Offline
+                </h1>
+                <p class="subtitle">The Unified Trading Model could not be loaded for real-time predictions.</p>
+            </div>
+            <div class="header-meta">
+                <div class="stat-item-ai">
+                    <div class="stat-value-ai" style="color: var(--negative);">0%</div>
+                    <div class="stat-label-ai">Model Accuracy</div>
+                </div>
+                <div class="stat-item-ai">
+                    <div class="stat-value-ai" style="color: var(--negative);">N/A</div>
+                    <div class="stat-label-ai">Simulated P&L</div>
+                </div>
+                <div class="last-updated" style="color: var(--negative);">
+                    <i class="fas fa-times-circle"></i>
+                    Status: FAILED TO LOAD
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="signals-dashboard" style="text-align: center; padding: 50px; background-color: var(--card-bg); border-radius: 12px; margin-top: 30px;">
+        <h2>System Error Message</h2>
+        <p style="font-size: 1.1em; color: var(--text-secondary); margin-top: 20px;">
+            {{ error_message }}
+        </p>
+        <p style="font-weight: 600; margin-top: 30px; color: var(--primary-gold);">
+            ACTION REQUIRED:
+        </p>
+        <p>1. Ensure you have run the **Model Training cell (Cell 3)** in your notebook successfully.</p>
+        <p>2. Create a folder named **`models_unified`** in the same directory as your `app.py`.</p>
+        <p>3. Place the files **`direction_model.pkl`**, **`ranking_model.pkl`**, and **`feature_cols.txt`** inside the `models_unified` folder.</p>
+    </div>
+</div>
+{% endblock %}

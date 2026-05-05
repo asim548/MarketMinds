@@ -1,0 +1,8 @@
+{
+  "weights": "rl_agent_20260504_130449.pth",
+  "scaler": "rl_scaler_20260504_130449.pkl",
+  "saved_at_utc": "2026-05-04T13:04:49.528909+00:00",
+  "dueling": false,
+  "prioritized_training": false,
+  "version": "20260504_130449"
+}

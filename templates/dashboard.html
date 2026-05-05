@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Welcome Section -->
+    <div class="welcome-section mb-4">
+        <h1>Welcome back, {{ username }}!</h1>
+        <p>Here's your market overview and portfolio summary</p>
+    </div>
+
+    <!-- Market Stats -->
+    <div class="market-stats mb-4">
+        <div class="stat-card">
+            <div class="stat-value">${{ "{:,.2f}".format(portfolio_value) }}</div>
+            <div class="stat-label">Portfolio Value</div>
+            <div class="stat-change {% if avg_change >= 0 %}positive{% else %}negative{% endif %}">
+                {{ "%+.2f"|format(avg_change) }}%
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${{ "{:,.2f}".format(todays_gain) }}</div>
+            <div class="stat-label">Today's Gain</div>
+            <div class="stat-change {% if todays_gain >= 0 %}positive{% else %}negative{% endif %}">
+                {{ "%+.2f"|format(avg_change) }}%
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ active_positions }}</div>
+            <div class="stat-label">Active Positions</div>
+            <div class="stat-change positive">Live</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ best_symbol }}</div>
+            <div class="stat-label">Best Performer</div>
+            <div class="stat-change {% if best_change >= 0 %}positive{% else %}negative{% endif %}">
+                {{ "%+.2f"|format(best_change) }}%
+            </div>
+        </div>
+    </div>
+
+    <!-- Portfolio Overview -->
+    <div class="portfolio-overview mb-4">
+        <div class="portfolio-chart">
+            <h3>Portfolio Performance</h3>
+            <div class="chart-container">
+                <!-- Chart will be rendered here -->
+                <div class="chart-placeholder">
+                    <i class="fas fa-chart-line"></i>
+                    <p>Portfolio chart loading...</p>
+                </div>
+            </div>
+        </div>
+        <div class="portfolio-stats">
+            <div class="portfolio-stat">
+                <div class="stat-info">
+                    <h3>Best Performer</h3>
+                    <p>{{ best_symbol }}</p>
+                </div>
+                <div class="stat-value {% if best_change >= 0 %}positive{% else %}negative{% endif %}">
+                    {{ "%+.2f"|format(best_change) }}%
+                </div>
+            </div>
+            <div class="portfolio-stat">
+                <div class="stat-info">
+                    <h3>AI Recommendations</h3>
+                    <p>3 new opportunities</p>
+                </div>
+                <div class="stat-value">3</div>
+            </div>
+            <div class="portfolio-stat">
+                <div class="stat-info">
+                    <h3>Risk Level</h3>
+                    <p>Moderate</p>
+                </div>
+                <div class="stat-value">Medium</div>
+            </div>
+            <div class="portfolio-actions">
+                <button class="action-btn primary">
+                    <i class="fas fa-plus"></i>
+                    Add Funds
+                </button>
+                <button class="action-btn">
+                    <i class="fas fa-download"></i>
+                    Export Report
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Market Overview -->
+    <div class="market-overview">
+        <div class="section-header">
+            <h2>Market Overview</h2>
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="Search symbols...">
+                <i class="fas fa-search"></i>
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        
+        <!-- Crypto Section -->
+        <div class="market-section">
+            <h3 class="section-title">
+                <i class="fab fa-bitcoin"></i> Cryptocurrencies
+            </h3>
+            <div class="market-grid">
+                {% for crypto in crypto_data %}
+                <div class="market-card crypto" onclick="navigateToChart('crypto', '{{ crypto.symbol }}')">
+                    <div class="symbol-header">
+                        <span class="symbol">{{ crypto.symbol }}</span>
+                        <span class="name">{{ crypto.name }}</span>
+                    </div>
+                    <div class="price">${{ "%.2f"|format(crypto.price) }}</div>
+                    <div class="change {% if crypto.change >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ crypto.change_percent }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Stocks Section -->
+        <div class="market-section">
+            <h3 class="section-title">
+                <i class="fas fa-chart-line"></i> Stocks
+            </h3>
+            <div class="market-grid">
+                {% for stock in stocks_data %}
+                <div class="market-card stock" onclick="navigateToChart('stocks', '{{ stock.symbol }}')">
+                    <div class="symbol-header">
+                        <span class="symbol">{{ stock.symbol }}</span>
+                        <span class="name">{{ stock.name }}</span>
+                    </div>
+                    <div class="price">${{ "%.2f"|format(stock.price) }}</div>
+                    <div class="change {% if stock.change >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ stock.change_percent }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Forex Section -->
+        <div class="market-section">
+            <h3 class="section-title">
+                <i class="fas fa-globe"></i> Forex
+            </h3>
+            <div class="market-grid">
+                {% for forex in forex_data %}
+                <div class="market-card forex" onclick="navigateToChart('forex', '{{ forex.symbol }}')">
+                    <div class="symbol-header">
+                        <span class="symbol">{{ forex.symbol }}</span>
+                        <span class="name">{{ forex.name }}</span>
+                    </div>
+                    <div class="price">{{ "%.4f"|format(forex.price) }}</div>
+                    <div class="change {% if forex.change >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ forex.change_percent }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- News Analysis Section -->
+    <div class="news-analysis">
+        <div class="section-header">
+            <h2>AI News Analysis</h2>
+            <div class="news-filters">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="stocks">Stocks</button>
+                <button class="filter-btn" data-filter="crypto">Crypto</button>
+                <button class="filter-btn" data-filter="forex">Forex</button>
+            </div>
+        </div>
+        <div class="news-cards">
+            <div class="news-item" data-category="stocks">
+                <div class="news-header">
+                    <div class="news-title">Tech Sector Shows Strong Earnings Potential</div>
+                    <div class="news-sentiment sentiment-positive">Bullish</div>
+                </div>
+                <div class="news-meta">
+                    <span class="news-source">
+                        <i class="fas fa-newspaper"></i>
+                        Financial Times
+                    </span>
+                    <span class="news-time">2 hours ago</span>
+                </div>
+                <div class="news-excerpt">
+                    Major tech companies report better-than-expected earnings, with AI and cloud computing driving growth...
+                </div>
+                <div class="news-stocks">
+                    <span class="stock-tag">AAPL</span>
+                    <span class="stock-tag">MSFT</span>
+                    <span class="stock-tag">NVDA</span>
+                </div>
+            </div>
+            <div class="news-item" data-category="crypto">
+                <div class="news-header">
+                    <div class="news-title">Bitcoin ETF Approval Boosts Market Confidence</div>
+                    <div class="news-sentiment sentiment-positive">Bullish</div>
+                </div>
+                <div class="news-meta">
+                    <span class="news-source">
+                        <i class="fas fa-newspaper"></i>
+                        CoinDesk
+                    </span>
+                    <span class="news-time">4 hours ago</span>
+                </div>
+                <div class="news-excerpt">
+                    Recent ETF approvals have increased institutional interest in cryptocurrency markets...
+                </div>
+                <div class="news-stocks">
+                    <span class="stock-tag">BTC</span>
+                    <span class="stock-tag">ETH</span>
+                    <span class="stock-tag">SOL</span>
+                </div>
+            </div>
+            <div class="news-item" data-category="forex">
+                <div class="news-header">
+                    <div class="news-title">Federal Reserve Hints at Rate Cuts</div>
+                    <div class="news-sentiment sentiment-negative">Bearish USD</div>
+                </div>
+                <div class="news-meta">
+                    <span class="news-source">
+                        <i class="fas fa-newspaper"></i>
+                        Bloomberg
+                    </span>
+                    <span class="news-time">6 hours ago</span>
+                </div>
+                <div class="news-excerpt">
+                    Fed officials suggest potential rate cuts in Q2, impacting currency markets and forex pairs...
+                </div>
+                <div class="news-stocks">
+                    <span class="stock-tag">EUR/USD</span>
+                    <span class="stock-tag">GBP/USD</span>
+                    <span class="stock-tag">USD/JPY</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function navigateToChart(symbolType, symbol) {
+    window.location.href = `/chart/${symbolType}/${symbol}`;
+}
+
+// Search functionality
+document.getElementById('search-input').addEventListener('input', function(e) {
+    const query = e.target.value;
+    if (query.length > 2) {
+        fetch(`/api/search?q=${query}`)
+            .then(response => response.json())
+            .then(data => {
+                const resultsContainer = document.getElementById('search-results');
+                resultsContainer.innerHTML = '';
+                data.forEach(item => {
+                    const result = document.createElement('div');
+                    result.className = 'search-result';
+                    result.innerHTML = `
+                        <div>
+                            <div class="stock-symbol">${item.symbol}</div>
+                            <div class="stock-name">${item.name}</div>
+                        </div>
+                        <div>
+                            <div class="stock-price">
+                                ${item.symbol.includes('/') ? item.price.toFixed(4) : '$' + item.price.toFixed(2)}
+                            </div>
+                            <div class="stock-change ${item.change >= 0 ? 'positive' : 'negative'}">
+                                ${item.change >= 0 ? '+' : ''}${item.change_percent}
+                            </div>
+                        </div>
+                    `;
+                    result.onclick = () => navigateToChart(
+                        item.symbol.includes('/') ? 'forex' : 
+                        item.symbol.length <= 4 ? 'stocks' : 'crypto', 
+                        item.symbol
+                    );
+                    resultsContainer.appendChild(result);
+                });
+                resultsContainer.style.display = 'block';
+            });
+    }
+});
+
+// Close search results when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.search-container')) {
+        document.getElementById('search-results').style.display = 'none';
+    }
+});
+
+// News filter functionality
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        // Remove active class from all buttons
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        // Add active class to clicked button
+        this.classList.add('active');
+        
+        const filter = this.getAttribute('data-filter');
+        const newsItems = document.querySelectorAll('.news-item');
+        
+        newsItems.forEach(item => {
+            if (filter === 'all' || item.getAttribute('data-category') === filter) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

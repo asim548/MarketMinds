@@ -1,0 +1,132 @@
+/* FinancialPulse-inspired homepage layer (scoped) */
+:root{
+  /* Align MarketMinds tokens to FinancialPulse palette */
+  --primary-bg:#0a0e1a;
+  --secondary-bg:#111827;
+  --tertiary-bg:#1a2236;
+  --primary-gold:#00d4ff;
+  --secondary-gold:#7c3aed;
+  --accent-maroon:#7c3aed;
+  --text-primary:#e2e8f0;
+  --text-secondary:#cbd5e1;
+  --text-muted:#64748b;
+  --positive:#00e676;
+  --negative:#ff4444;
+  --border-color:#1e2d45;
+  --card-bg:rgba(17,24,39,.92);
+  --gradient-primary:linear-gradient(135deg,#00d4ff,#7c3aed);
+  --gradient-dark:linear-gradient(135deg,#0a0e1a 0%, #0b1020 100%);
+}
+
+/* Homepage-only wrapper to avoid impacting other pages */
+.fp-home{
+  padding-top: 86px; /* base navbar is fixed */
+  background: var(--primary-bg);
+}
+
+.fp-unified-hero{
+  padding-top: 8px;
+}
+
+.fp-ticker-wrap{
+  overflow:hidden;
+  background: var(--secondary-bg);
+  border-bottom:1px solid var(--border-color);
+  height:68px;
+  position:relative;
+}
+.fp-ticker-wrap::before,.fp-ticker-wrap::after{content:'';position:absolute;top:0;width:60px;height:100%;z-index:2;pointer-events:none;}
+.fp-ticker-wrap::before{left:0;background:linear-gradient(to right,var(--secondary-bg),transparent);}
+.fp-ticker-wrap::after{right:0;background:linear-gradient(to left,var(--secondary-bg),transparent);}
+.fp-ticker-track{
+  display:flex;
+  align-items:stretch;
+  white-space:nowrap;
+  animation:fp-ticker-scroll 60s linear infinite;
+  width:max-content;
+}
+.fp-ticker-track:hover{animation-play-state:paused;}
+@keyframes fp-ticker-scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.fp-chip{
+  display:inline-flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:4px;
+  padding:10px 16px;
+  border-right:1px solid rgba(30,45,69,.85);
+  min-width:132px;
+  height:68px;
+  line-height:1.05;
+  background: linear-gradient(180deg, rgba(26,34,54,.55), rgba(17,24,39,0));
+}
+.fp-chip .fp-sym{
+  display:block !important;
+  font-size:12px;
+  color:var(--primary-gold) !important;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  text-shadow: 0 1px 10px rgba(0, 212, 255, 0.25);
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+.fp-chip .fp-val{
+  font-size:16px;
+  font-weight:900;
+  color:var(--text-primary);
+}
+.fp-chip .fp-chg{
+  font-size:12px;
+  font-weight:800;
+}
+.fp-up{color:var(--positive);} .fp-dn{color:var(--negative);} .fp-nt{color:var(--text-muted);}
+
+.fp-tabs{
+  display:flex;gap:0;overflow:auto;
+  padding:0 24px;
+  background:var(--secondary-bg);
+  border-bottom:1px solid var(--border-color);
+}
+.fp-tab{
+  padding:12px 16px;cursor:pointer;font-size:13px;font-weight:600;
+  color:var(--text-muted);border-bottom:2px solid transparent;transition:.2s;white-space:nowrap;
+}
+.fp-tab:hover{color:var(--text-primary);}
+.fp-tab.active{color:var(--primary-gold);border-bottom-color:var(--primary-gold);}
+
+.fp-main{padding:20px 24px;max-width:1600px;margin:0 auto;}
+.fp-grid-2{display:grid;grid-template-columns:2fr 1fr;gap:16px;}
+.fp-grid-2b{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.fp-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+@media(max-width:1100px){.fp-grid-4{grid-template-columns:repeat(2,1fr);} .fp-grid-2{grid-template-columns:1fr;} .fp-grid-2b{grid-template-columns:1fr;}}
+
+.fp-card{
+  background:var(--secondary-bg);
+  border:1px solid var(--border-color);
+  border-radius:12px;
+  padding:18px;
+}
+.fp-card-title{
+  font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--text-muted);text-transform:uppercase;
+  margin-bottom:14px;display:flex;align-items:center;gap:6px;
+}
+.fp-badge{font-size:9px;padding:2px 6px;border-radius:10px;background:var(--secondary-gold);color:#fff;font-weight:700;}
+.fp-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:9px 14px;border-radius:10px;border:1px solid var(--border-color);
+  background:transparent;color:var(--text-primary);font-weight:700;font-size:12px;cursor:pointer;transition:.2s;
+  text-decoration:none;
+}
+.fp-btn:hover{background:var(--tertiary-bg);}
+.fp-btn-primary{background:var(--primary-gold);border-color:transparent;color:#001018;}
+.fp-btn-primary:hover{filter:brightness(.95);}
+
+.fp-panel{display:none;}
+.fp-panel.active{display:block;}
+
+.fp-muted{color:var(--text-muted);font-size:12px;}
+.fp-hr{height:1px;background:var(--border-color);margin:14px 0;}
+
+/* Secondary MarketMinds sections feel visually smaller */
+.fp-secondary .fp-card{background:rgba(17,24,39,.75);}
+.fp-secondary .fp-card-title{opacity:.85;}

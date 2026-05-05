@@ -1,0 +1,901 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="chart-view-container">
+    <!-- Header Section -->
+    <div class="chart-header-section">
+        <div class="symbol-main-info">
+            <div class="symbol-title">
+                <h1>{{ symbol_data.symbol }}</h1>
+                <span class="asset-name">{{ symbol_data.name }}</span>
+            </div>
+            <div class="price-display">
+                
+                <div class="price-change {% if symbol_data.change >= 0 %}positive{% else %}negative{% endif %}">
+                    {{ symbol_data.change_percent }}
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-controls-panel">
+            <div class="control-group">
+                <label>Timeframe</label>
+                <select id="timeframe-select" class="control-select">
+                    <option value="1">1 Minute</option>
+                    <option value="5">5 Minutes</option>
+                    <option value="15">15 Minutes</option>
+                    <option value="30">30 Minutes</option>
+                    <option value="60">1 Hour</option>
+                    <option value="240">4 Hours</option>
+                    <option value="1D" selected>1 Day</option>
+                    <option value="1W">1 Week</option>
+                    <option value="1M">1 Month</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>Chart Type</label>
+                <div class="chart-type-buttons">
+                    <button class="chart-type-btn active" data-type="candles">Candles</button>
+                    <button class="chart-type-btn" data-type="line">Line</button>
+                    <button class="chart-type-btn" data-type="area">Area</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Chart Area -->
+    <div class="chart-main-section">
+        <div class="chart-wrapper">
+            <div class="tradingview-widget-container">
+                <div id="tradingview_chart">
+                    <div class="chart-loading-state">
+                        <div class="loading-spinner">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <p>Loading chart data for {{ symbol_data.symbol }}...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Technical Analysis Tools -->
+        <div class="analysis-tools-section">
+            <div class="section-title">
+                <i class="fas fa-tools"></i>
+                <h3>Technical Analysis Tools</h3>
+            </div>
+            
+            <div class="tools-grid">
+                <div class="tool-card" onclick="addIndicator('sma')">
+                    <div class="tool-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="tool-info">
+                        <span class="tool-name">SMA</span>
+                        <span class="tool-desc">Simple Moving Average</span>
+                    </div>
+                </div>
+                
+                <div class="tool-card" onclick="addIndicator('ema')">
+                    <div class="tool-icon">
+                        <i class="fas fa-wave-square"></i>
+                    </div>
+                    <div class="tool-info">
+                        <span class="tool-name">EMA</span>
+                        <span class="tool-desc">Exponential MA</span>
+                    </div>
+                </div>
+                
+                <div class="tool-card" onclick="addIndicator('rsi')">
+                    <div class="tool-icon">
+                        <i class="fas fa-tachometer-alt"></i>
+                    </div>
+                    <div class="tool-info">
+                        <span class="tool-name">RSI</span>
+                        <span class="tool-desc">Relative Strength</span>
+                    </div>
+                </div>
+                
+                <div class="tool-card" onclick="addIndicator('macd')">
+                    <div class="tool-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <div class="tool-info">
+                        <span class="tool-name">MACD</span>
+                        <span class="tool-desc">Trend Following</span>
+                    </div>
+                </div>
+                
+                <div class="tool-card" onclick="addIndicator('bollinger')">
+                    <div class="tool-icon">
+                        <i class="fas fa-arrows-alt-v"></i>
+                    </div>
+                    <div class="tool-info">
+                        <span class="tool-name">Bollinger</span>
+                        <span class="tool-desc">Volatility Bands</span>
+                    </div>
+                </div>
+                
+                <div class="tool-card" onclick="addIndicator('stochastic')">
+                    <div class="tool-icon">
+                        <i class="fas fa-random"></i>
+                    </div>
+                    <div class="tool-info">
+                        <span class="tool-name">Stochastic</span>
+                        <span class="tool-desc">Momentum Oscillator</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Results Panel -->
+    <div class="analysis-results-panel" id="analysis-results">
+        <div class="results-header">
+            <h4 id="result-title">Technical Analysis</h4>
+            <button class="close-results" onclick="closeResults()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="results-content" id="result-content">
+            <div class="empty-state">
+                <i class="fas fa-chart-bar"></i>
+                <p>Select a technical indicator to see analysis results</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Chart View Container */
+.chart-view-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 100px 2rem 2rem 2rem;
+    min-height: 100vh;
+    background: var(--primary-bg);
+}
+
+/* Header Section */
+.chart-header-section {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 3rem;
+    align-items: start;
+    margin-bottom: 2rem;
+    padding: 2rem;
+    background: var(--card-bg);
+    border: 1px solid rgba(255, 215, 0, 0.1);
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+}
+
+.chart-header-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-primary);
+}
+
+.symbol-main-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.symbol-title h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--primary-gold);
+    margin: 0;
+    line-height: 1;
+}
+
+.asset-name {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 0.5rem;
+}
+
+.price-display {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.current-price {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.price-change {
+    font-size: 1.25rem;
+    font-weight: 600;
+    padding: 0.5rem 1.5rem;
+    border-radius: 25px;
+    display: inline-block;
+}
+
+.price-change.positive {
+    background: rgba(0, 255, 136, 0.1);
+    color: var(--positive);
+    border: 1px solid rgba(0, 255, 136, 0.3);
+}
+
+.price-change.negative {
+    background: rgba(255, 68, 68, 0.1);
+    color: var(--negative);
+    border: 1px solid rgba(255, 68, 68, 0.3);
+}
+
+/* Chart Controls */
+.chart-controls-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-width: 250px;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.control-group label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.control-select {
+    background: rgba(10, 10, 10, 0.8);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    color: var(--text-primary);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 150px;
+}
+
+.control-select:focus {
+    outline: none;
+    border-color: var(--primary-gold);
+    box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.1);
+}
+
+.chart-type-buttons {
+    display: flex;
+    gap: 0.5rem;
+    background: rgba(10, 10, 10, 0.6);
+    padding: 0.25rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 215, 0, 0.1);
+}
+
+.chart-type-btn {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.chart-type-btn.active {
+    background: var(--gradient-primary);
+    color: var(--primary-bg);
+}
+
+.chart-type-btn:hover:not(.active) {
+    background: rgba(255, 215, 0, 0.1);
+    color: var(--primary-gold);
+}
+
+/* Main Chart Section */
+.chart-main-section {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.chart-wrapper {
+    background: var(--card-bg);
+    border: 1px solid rgba(255, 215, 0, 0.1);
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    min-height: 600px;
+}
+
+.chart-wrapper::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-primary);
+    z-index: 2;
+}
+
+.tradingview-widget-container {
+    width: 100%;
+    height: 100%;
+}
+
+#tradingview_chart {
+    width: 100%;
+    height: 600px;
+    background: var(--primary-bg);
+}
+
+.chart-loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 600px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.loading-spinner {
+    width: 60px;
+    height: 60px;
+    background: var(--gradient-primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    animation: pulse 2s infinite;
+}
+
+.loading-spinner i {
+    font-size: 1.5rem;
+    color: var(--primary-bg);
+}
+
+.chart-loading-state p {
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+/* Analysis Tools Section */
+.analysis-tools-section {
+    background: var(--card-bg);
+    border: 1px solid rgba(255, 215, 0, 0.1);
+    border-radius: 16px;
+    padding: 1.5rem;
+    height: fit-content;
+    position: relative;
+    overflow: hidden;
+}
+
+.analysis-tools-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-primary);
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.section-title h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.section-title i {
+    color: var(--primary-gold);
+    font-size: 1.1rem;
+}
+
+.tools-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.tool-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(10, 10, 10, 0.6);
+    border: 1px solid rgba(255, 215, 0, 0.1);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.tool-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.1), transparent);
+    transition: 0.5s;
+}
+
+.tool-card:hover::before {
+    left: 100%;
+}
+
+.tool-card:hover {
+    border-color: var(--primary-gold);
+    transform: translateX(5px);
+}
+
+.tool-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--gradient-primary);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-bg);
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.tool-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.tool-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.tool-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* Analysis Results Panel */
+.analysis-results-panel {
+    background: var(--card-bg);
+    border: 1px solid rgba(255, 215, 0, 0.1);
+    border-radius: 16px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    display: none;
+}
+
+.analysis-results-panel.active {
+    display: block;
+    animation: slideUp 0.3s ease;
+}
+
+.analysis-results-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-primary);
+}
+
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.results-header h4 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.close-results {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.close-results:hover {
+    color: var(--primary-gold);
+    background: rgba(255, 215, 0, 0.1);
+}
+
+.results-content {
+    color: var(--text-secondary);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+}
+
+.empty-state i {
+    font-size: 3rem;
+    color: var(--primary-gold);
+    margin-bottom: 1rem;
+    opacity: 0.5;
+    display: block;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 1rem;
+}
+
+/* Analysis Metrics */
+.analysis-metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.analysis-metric:last-child {
+    border-bottom: none;
+}
+
+.metric-label {
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.metric-value {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.metric-value.positive {
+    color: var(--positive);
+}
+
+.metric-value.negative {
+    color: var(--negative);
+}
+
+.metric-value.neutral {
+    color: var(--primary-gold);
+}
+
+/* Animations */
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .chart-main-section {
+        grid-template-columns: 1fr;
+    }
+    
+    .analysis-tools-section {
+        order: -1;
+    }
+}
+
+@media (max-width: 768px) {
+    .chart-view-container {
+        padding: 80px 1rem 1rem 1rem;
+    }
+    
+    .chart-header-section {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+        padding: 1.5rem;
+    }
+    
+    .symbol-title h1 {
+        font-size: 2rem;
+    }
+    
+    .current-price {
+        font-size: 2rem;
+    }
+    
+    .price-change {
+        font-size: 1rem;
+    }
+    
+    .chart-controls-panel {
+        min-width: auto;
+    }
+    
+    .chart-wrapper {
+        min-height: 500px;
+    }
+    
+    #tradingview_chart {
+        height: 500px;
+    }
+    
+    .chart-loading-state {
+        height: 500px;
+    }
+}
+
+@media (max-width: 480px) {
+    .price-display {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    
+    .chart-type-buttons {
+        flex-direction: column;
+    }
+    
+    .tools-grid {
+        gap: 0.5rem;
+    }
+    
+    .tool-card {
+        padding: 0.75rem;
+    }
+}
+</style>
+
+<script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+<script>
+let chartWidget;
+
+function initializeTradingView() {
+    // Remove loading state
+    const loadingElement = document.querySelector('.chart-loading-state');
+    if (loadingElement) {
+        loadingElement.style.display = 'none';
+    }
+    
+    // Determine the correct TradingView symbol format
+    let tvSymbol = "{{ symbol_data.symbol }}";
+    
+    // Format symbol for TradingView
+    if ("{{ symbol_type }}" === "crypto") {
+        tvSymbol = "BINANCE:" + tvSymbol + "USDT";
+    } else if ("{{ symbol_type }}" === "forex") {
+        tvSymbol = "FX:" + tvSymbol;
+    } else {
+        tvSymbol = tvSymbol;
+    }
+    
+    try {
+        chartWidget = new TradingView.widget({
+            container_id: "tradingview_chart",
+            autosize: true,
+            symbol: tvSymbol,
+            interval: "D",
+            timezone: "Etc/UTC",
+            theme: "dark",
+            style: "1",
+            locale: "en",
+            toolbar_bg: "#0a0a0a",
+            enable_publishing: false,
+            allow_symbol_change: true,
+            studies: [
+                "RSI@tv-basicstudies",
+                "MACD@tv-basicstudies",
+                "BB@tv-basicstudies"
+            ],
+            details: true,
+            hotlist: true,
+            calendar: true,
+            studies_overrides: {},
+            overrides: {
+                "paneProperties.background": "#0a0a0a",
+                "paneProperties.vertGridProperties.color": "#1a1a1a",
+                "paneProperties.horzGridProperties.color": "#1a1a1a",
+            }
+        });
+    } catch (error) {
+        console.error('Error initializing TradingView:', error);
+        showChartError();
+    }
+}
+
+function showChartError() {
+    const chartContainer = document.getElementById('tradingview_chart');
+    chartContainer.innerHTML = `
+        <div class="chart-loading-state">
+            <div class="loading-spinner" style="background: var(--negative);">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h3>Chart Loading Failed</h3>
+            <p>Unable to load trading chart for {{ symbol_data.symbol }}</p>
+            <button class="chart-type-btn active" onclick="location.reload()" style="margin-top: 1rem;">
+                <i class="fas fa-redo"></i> Try Again
+            </button>
+        </div>
+    `;
+}
+
+function addIndicator(indicator) {
+    console.log(`Adding ${indicator} indicator`);
+    
+    // Show loading state in results
+    const resultsElement = document.getElementById('analysis-results');
+    const resultContent = document.getElementById('result-content');
+    const resultTitle = document.getElementById('result-title');
+    
+    resultsElement.classList.add('active');
+    resultTitle.textContent = `Analyzing ${getIndicatorName(indicator)}...`;
+    resultContent.innerHTML = `
+        <div class="empty-state">
+            <div class="loading-spinner" style="width: 40px; height: 40px; margin: 0 auto 1rem;">
+                <i class="fas fa-spinner fa-spin"></i>
+            </div>
+            <p>Processing market data...</p>
+        </div>
+    `;
+    
+    // Simulate API call
+    setTimeout(() => {
+        const analysisData = generateMockAnalysis(indicator);
+        displayAnalysisResults(indicator, analysisData);
+    }, 1500);
+}
+
+function getIndicatorName(indicator) {
+    const names = {
+        sma: "Simple Moving Average",
+        ema: "Exponential Moving Average", 
+        rsi: "Relative Strength Index",
+        macd: "MACD",
+        bollinger: "Bollinger Bands",
+        stochastic: "Stochastic Oscillator"
+    };
+    return names[indicator] || indicator.toUpperCase();
+}
+
+function generateMockAnalysis(indicator) {
+    const mockData = {
+        sma: [
+            { label: "SMA (20)", value: "Bullish", type: "positive" },
+            { label: "SMA (50)", value: "Neutral", type: "neutral" },
+            { label: "SMA (200)", value: "Bearish", type: "negative" },
+            { label: "Overall Trend", value: "Upward", type: "positive" }
+        ],
+        ema: [
+            { label: "EMA (12)", value: "Strong Buy", type: "positive" },
+            { label: "EMA (26)", value: "Buy", type: "positive" },
+            { label: "Crossover Signal", value: "Golden Cross", type: "positive" }
+        ],
+        rsi: [
+            { label: "RSI Value", value: "62.5", type: "neutral" },
+            { label: "Momentum", value: "Moderate Bullish", type: "positive" },
+            { label: "Overbought/Oversold", value: "Neutral", type: "neutral" }
+        ],
+        macd: [
+            { label: "MACD Line", value: "Bullish", type: "positive" },
+            { label: "Signal Line", value: "Crossing Up", type: "positive" },
+            { label: "Histogram", value: "Positive", type: "positive" }
+        ],
+        bollinger: [
+            { label: "Price Position", value: "Upper Band", type: "negative" },
+            { label: "Band Width", value: "Expanding", type: "positive" },
+            { label: "Volatility", value: "High", type: "neutral" }
+        ],
+        stochastic: [
+            { label: "%K Line", value: "75.2", type: "negative" },
+            { label: "%D Line", value: "68.9", type: "negative" },
+            { label: "Market Condition", value: "Overbought", type: "negative" }
+        ]
+    };
+    
+    return mockData[indicator] || [
+        { label: "Analysis", value: "Not Available", type: "neutral" }
+    ];
+}
+
+function displayAnalysisResults(indicator, metrics) {
+    const resultTitle = document.getElementById('result-title');
+    const resultContent = document.getElementById('result-content');
+    
+    resultTitle.textContent = getIndicatorName(indicator);
+    
+    let html = '';
+    metrics.forEach(metric => {
+        html += `
+            <div class="analysis-metric">
+                <span class="metric-label">${metric.label}</span>
+                <span class="metric-value ${metric.type}">${metric.value}</span>
+            </div>
+        `;
+    });
+    
+    // Add timestamp
+    html += `
+        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
+            <small style="color: var(--text-muted);">
+                <i class="fas fa-clock"></i> 
+                Analysis generated: ${new Date().toLocaleString()}
+            </small>
+        </div>
+    `;
+    
+    resultContent.innerHTML = html;
+}
+
+function closeResults() {
+    document.getElementById('analysis-results').classList.remove('active');
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initializeTradingView();
+    
+    // Chart type buttons
+    document.querySelectorAll('.chart-type-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.chart-type-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+    
+    // Timeframe selector
+    document.getElementById('timeframe-select').addEventListener('change', function(e) {
+        console.log('Timeframe changed to:', e.target.value);
+    });
+});
+</script>
+{% endblock %}

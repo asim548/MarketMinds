@@ -1,0 +1,641 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="ai-pages-container">
+    <!-- Header Section -->
+    <div class="page-header-ai">
+        <div class="header-content">
+            <div class="ai-title-section">
+                <div class="ai-badge">
+                    <i class="fas fa-brain"></i>
+                    AI-Powered Analysis
+                </div>
+                <h1 class="glowing-text">Candlestick Pattern Recognition</h1>
+                <p class="ai-subtitle">
+                    Upload any chart image and let our custom-trained AI model detect sophisticated candlestick patterns instantly. Our YOLO-based deep learning model identifies multiple pattern types with high accuracy.
+                </p>
+            </div>
+            <div class="ai-stats-panel">
+                <div class="stat-item">
+                    <div class="stat-value" id="patterns-detected">--</div>
+                    <div class="stat-label">Patterns Detected</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="analysis-time">--</div>
+                    <div class="stat-label">Analysis Time</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="pattern-upload-section">
+        <div class="upload-card">
+            <div class="upload-header">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <h3>Upload Chart Image</h3>
+                <p>Select a candlestick chart image for pattern analysis</p>
+            </div>
+            
+            <form id="pattern-upload-form" class="upload-form" enctype="multipart/form-data">
+                <div class="file-upload-wrapper">
+                    <input type="file" 
+                           id="chart-file-input" 
+                           name="chart_image" 
+                           accept="image/png, image/jpeg, image/jpg, image/gif" 
+                           required>
+                    <label for="chart-file-input" class="file-upload-label">
+                        <i class="fas fa-image"></i>
+                        <span id="file-name">Click to select or drag & drop your chart image here</span>
+                        <small>Supports: PNG, JPG, JPEG, GIF (Max 16MB)</small>
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-large btn-glow" id="analyze-btn">
+                    <i class="fas fa-search"></i>
+                    Analyze Patterns
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="loading-state" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+        </div>
+        <p>Analyzing chart image...</p>
+        <p class="loading-subtext">Our AI is detecting candlestick patterns</p>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results-section" class="results-section" style="display: none;">
+        <div class="results-grid">
+            <!-- Annotated Image -->
+            <div class="result-image-card">
+                <h3 class="section-title">
+                    <i class="fas fa-eye text-gold"></i>
+                    Detected Patterns on Chart
+                </h3>
+                <div class="image-container">
+                    <img id="result-image" src="" alt="Annotated Chart" class="result-image">
+                </div>
+                <div class="image-actions">
+                    <button class="action-btn" onclick="downloadImage()">
+                        <i class="fas fa-download"></i>
+                        Download Result
+                    </button>
+                    <button class="action-btn primary" onclick="resetAnalysis()">
+                        <i class="fas fa-redo"></i>
+                        Analyze New Chart
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pattern List -->
+            <div class="pattern-list-card">
+                <h3 class="section-title">
+                    <i class="fas fa-list-ul text-gold"></i>
+                    Identified Patterns
+                </h3>
+                <div id="patterns-container" class="patterns-container">
+                    <!-- Patterns will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="error-state" class="error-state" style="display: none;">
+        <div class="error-icon">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <h3 id="error-message">An error occurred</h3>
+        <button class="btn btn-secondary" onclick="resetAnalysis()">
+            <i class="fas fa-arrow-left"></i>
+            Try Again
+        </button>
+    </div>
+
+    <!-- Pattern Information Section -->
+    <div class="pattern-info-section">
+        <h2 class="section-header">
+            <i class="fas fa-book"></i>
+            Common Candlestick Patterns
+        </h2>
+        <div class="info-grid">
+            <div class="info-card">
+                <div class="info-icon bullish">
+                    <i class="fas fa-arrow-up"></i>
+                </div>
+                <h4>Bullish Patterns</h4>
+                <p>Patterns that indicate potential upward price movement, such as Hammer, Morning Star, and Bullish Engulfing.</p>
+            </div>
+            <div class="info-card">
+                <div class="info-icon bearish">
+                    <i class="fas fa-arrow-down"></i>
+                </div>
+                <h4>Bearish Patterns</h4>
+                <p>Patterns that suggest potential downward price movement, like Shooting Star, Evening Star, and Bearish Engulfing.</p>
+            </div>
+            <div class="info-card">
+                <div class="info-icon neutral">
+                    <i class="fas fa-minus"></i>
+                </div>
+                <h4>Reversal Patterns</h4>
+                <p>Patterns indicating a potential trend reversal, including Doji, Spinning Top, and Harami patterns.</p>
+            </div>
+            <div class="info-card">
+                <div class="info-icon continuation">
+                    <i class="fas fa-arrows-alt-h"></i>
+                </div>
+                <h4>Continuation Patterns</h4>
+                <p>Patterns suggesting the current trend will continue, such as Three White Soldiers and Three Black Crows.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Pattern Recognition Specific Styles */
+.pattern-upload-section {
+    margin-bottom: 3rem;
+}
+
+.upload-card {
+    background: var(--card-bg);
+    border: 1px solid rgba(255, 215, 0, 0.1);
+    border-radius: 20px;
+    padding: 3rem;
+    text-align: center;
+}
+
+.upload-header {
+    margin-bottom: 2rem;
+}
+
+.upload-header i {
+    font-size: 3rem;
+    color: var(--primary-gold);
+    margin-bottom: 1rem;
+}
+
+.upload-header h3 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.upload-header p {
+    color: var(--text-muted);
+}
+
+.file-upload-wrapper {
+    position: relative;
+    margin-bottom: 2rem;
+}
+
+.file-upload-wrapper input[type="file"] {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.file-upload-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    border: 2px dashed rgba(255, 215, 0, 0.3);
+    border-radius: 12px;
+    background: rgba(255, 215, 0, 0.05);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.file-upload-label:hover {
+    border-color: var(--primary-gold);
+    background: rgba(255, 215, 0, 0.1);
+}
+
+.file-upload-label i {
+    font-size: 2.5rem;
+    color: var(--primary-gold);
+    margin-bottom: 1rem;
+}
+
+.file-upload-label span {
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.file-upload-label small {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.loading-state {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.loading-spinner {
+    font-size: 4rem;
+    color: var(--primary-gold);
+    margin-bottom: 1rem;
+}
+
+.loading-subtext {
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+}
+
+.results-section {
+    margin-bottom: 3rem;
+}
+
+.results-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+}
+
+.result-image-card,
+.pattern-list-card {
+    background: var(--card-bg);
+    border: 1px solid rgba(255, 215, 0, 0.1);
+    border-radius: 20px;
+    padding: 2rem;
+}
+
+.section-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.image-container {
+    background: rgba(10, 10, 10, 0.5);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.result-image {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.image-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.patterns-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.pattern-item {
+    background: rgba(10, 10, 10, 0.5);
+    border: 1px solid rgba(255, 215, 0, 0.1);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.pattern-item:hover {
+    border-color: rgba(255, 215, 0, 0.3);
+    transform: translateX(5px);
+}
+
+.pattern-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary-gold);
+}
+
+.pattern-icon {
+    font-size: 1.5rem;
+    color: var(--positive);
+}
+
+.no-patterns {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+}
+
+.no-patterns i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    display: block;
+    color: var(--negative);
+}
+
+.error-state {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.error-icon {
+    font-size: 4rem;
+    color: var(--negative);
+    margin-bottom: 1rem;
+}
+
+.error-state h3 {
+    color: var(--text-primary);
+    margin-bottom: 2rem;
+}
+
+.pattern-info-section {
+    background: var(--card-bg);
+    border: 1px solid rgba(255, 215, 0, 0.1);
+    border-radius: 20px;
+    padding: 3rem;
+    margin-top: 3rem;
+}
+
+.pattern-info-section .section-header {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+}
+
+.info-card {
+    text-align: center;
+    padding: 2rem;
+    background: rgba(10, 10, 10, 0.5);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 215, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.info-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(255, 215, 0, 0.3);
+}
+
+.info-icon {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.info-icon.bullish {
+    background: rgba(0, 255, 136, 0.1);
+    color: var(--positive);
+}
+
+.info-icon.bearish {
+    background: rgba(255, 68, 68, 0.1);
+    color: var(--negative);
+}
+
+.info-icon.neutral {
+    background: rgba(255, 215, 0, 0.1);
+    color: var(--primary-gold);
+}
+
+.info-icon.continuation {
+    background: rgba(74, 144, 226, 0.1);
+    color: #4a90e2;
+}
+
+.info-card h4 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.info-card p {
+    color: var(--text-muted);
+    line-height: 1.6;
+    font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .results-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .upload-card {
+        padding: 2rem 1rem;
+    }
+    
+    .file-upload-label {
+        padding: 2rem 1rem;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('pattern-upload-form');
+    const fileInput = document.getElementById('chart-file-input');
+    const fileName = document.getElementById('file-name');
+    const loadingState = document.getElementById('loading-state');
+    const resultsSection = document.getElementById('results-section');
+    const errorState = document.getElementById('error-state');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    
+    let startTime = 0;
+    
+    // File input change handler
+    fileInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            fileName.textContent = this.files[0].name;
+        } else {
+            fileName.textContent = 'Click to select or drag & drop your chart image here';
+        }
+    });
+    
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (!fileInput.files || !fileInput.files[0]) {
+            alert('Please select a file first');
+            return;
+        }
+        
+        // Hide previous results/errors
+        resultsSection.style.display = 'none';
+        errorState.style.display = 'none';
+        
+        // Show loading state
+        loadingState.style.display = 'block';
+        analyzeBtn.disabled = true;
+        
+        startTime = Date.now();
+        
+        // Prepare form data
+        const formData = new FormData();
+        formData.append('chart_image', fileInput.files[0]);
+        
+        try {
+            const response = await fetch('/api/recognize_patterns', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            const endTime = Date.now();
+            const analysisTime = ((endTime - startTime) / 1000).toFixed(2);
+            
+            // Hide loading
+            loadingState.style.display = 'none';
+            analyzeBtn.disabled = false;
+            
+            if (data.success) {
+                displayResults(data, analysisTime);
+            } else {
+                displayError(data.error || 'Analysis failed');
+            }
+            
+        } catch (error) {
+            console.error('Error:', error);
+            loadingState.style.display = 'none';
+            analyzeBtn.disabled = false;
+            displayError('Network error. Please try again.');
+        }
+    });
+});
+
+function displayResults(data, analysisTime) {
+    const resultsSection = document.getElementById('results-section');
+    const resultImage = document.getElementById('result-image');
+    const patternsContainer = document.getElementById('patterns-container');
+    const patternsDetected = document.getElementById('patterns-detected');
+    const analysisTimeEl = document.getElementById('analysis-time');
+    
+    // Update stats
+    patternsDetected.textContent = data.patterns.length;
+    analysisTimeEl.textContent = analysisTime + 's';
+    
+    // Set result image
+    resultImage.src = data.result_image_url;
+    resultImage.dataset.url = data.result_image_url;
+    
+    // Display patterns
+    patternsContainer.innerHTML = '';
+    
+    if (data.patterns.length === 0) {
+        patternsContainer.innerHTML = `
+            <div class="no-patterns">
+                <i class="fas fa-times-circle"></i>
+                <h4>No Patterns Detected</h4>
+                <p>The model could not identify any candlestick patterns in this image.</p>
+            </div>
+        `;
+    } else {
+        data.patterns.forEach(pattern => {
+            const patternItem = document.createElement('div');
+            patternItem.className = 'pattern-item';
+            patternItem.innerHTML = `
+                <div class="pattern-name">${pattern}</div>
+                <div class="pattern-icon"><i class="fas fa-check-circle"></i></div>
+            `;
+            patternsContainer.appendChild(patternItem);
+        });
+    }
+    
+    // Show results
+    resultsSection.style.display = 'block';
+    
+    // Scroll to results
+    resultsSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+function displayError(errorMessage) {
+    const errorState = document.getElementById('error-state');
+    const errorMessageEl = document.getElementById('error-message');
+    
+    errorMessageEl.textContent = errorMessage;
+    errorState.style.display = 'block';
+    
+    // Scroll to error
+    errorState.scrollIntoView({ behavior: 'smooth' });
+}
+
+function resetAnalysis() {
+    const form = document.getElementById('pattern-upload-form');
+    const fileInput = document.getElementById('chart-file-input');
+    const fileName = document.getElementById('file-name');
+    const resultsSection = document.getElementById('results-section');
+    const errorState = document.getElementById('error-state');
+    const patternsDetected = document.getElementById('patterns-detected');
+    const analysisTimeEl = document.getElementById('analysis-time');
+    
+    // Reset form
+    form.reset();
+    fileName.textContent = 'Click to select or drag & drop your chart image here';
+    
+    // Hide results and errors
+    resultsSection.style.display = 'none';
+    errorState.style.display = 'none';
+    
+    // Reset stats
+    patternsDetected.textContent = '--';
+    analysisTimeEl.textContent = '--';
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function downloadImage() {
+    const resultImage = document.getElementById('result-image');
+    const imageUrl = resultImage.dataset.url;
+    
+    if (imageUrl) {
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = 'pattern_recognition_result.jpg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,429 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="ai-pages-container">
+    <!-- Header Section -->
+    <div class="ai-header-section">
+        <div class="ai-title-section">
+            <div class="ai-badge">
+                <i class="fas fa-newspaper"></i>
+                AI-Powered News Analysis
+            </div>
+            <h1>Smart News Filtering & Market Predictions</h1>
+            <p class="ai-subtitle">Real-time news analysis with ML-powered sentiment detection and investment recommendations</p>
+        </div>
+        
+        <div class="ai-stats-panel">
+            <div class="stat-item">
+                <div class="stat-value">1,247</div>
+                <div class="stat-label">News Analyzed Today</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">89%</div>
+                <div class="stat-label">Accuracy Rate</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">42</div>
+                <div class="stat-label">Positive Signals</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="filters-section">
+        <div class="filter-group">
+            <label>Asset Type</label>
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">All Assets</button>
+                <button class="filter-btn" data-filter="stocks">Stocks</button>
+                <button class="filter-btn" data-filter="crypto">Cryptocurrency</button>
+                <button class="filter-btn" data-filter="forex">Forex</button>
+            </div>
+        </div>
+        
+        <div class="filter-group">
+            <label>Sentiment</label>
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-sentiment="all">All</button>
+                <button class="filter-btn" data-sentiment="bullish">
+                    <i class="fas fa-arrow-up"></i> Bullish
+                </button>
+                <button class="filter-btn" data-sentiment="bearish">
+                    <i class="fas fa-arrow-down"></i> Bearish
+                </button>
+                <button class="filter-btn" data-sentiment="neutral">
+                    <i class="fas fa-minus"></i> Neutral
+                </button>
+            </div>
+        </div>
+        
+        <div class="search-group">
+            <div class="search-container">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="Search news or symbols..." id="news-search">
+            </div>
+        </div>
+    </div>
+
+    <!-- News Grid -->
+    <div class="news-ai-grid">
+        <!-- News Card 1 -->
+        <div class="news-ai-card" data-category="stocks" data-sentiment="bullish">
+            <div class="news-header">
+                <div class="news-source">
+                    <img src="https://via.placeholder.com/20" alt="Bloomberg" class="source-logo">
+                    <span>Bloomberg</span>
+                </div>
+                <div class="news-time">2 hours ago</div>
+            </div>
+            
+            <div class="news-content">
+                <h3 class="news-title">Federal Reserve Signals Potential Rate Cuts in Q2 2024</h3>
+                <p class="news-excerpt">The Federal Reserve's latest minutes indicate a dovish shift, with discussions around potential rate cuts as inflation shows signs of cooling...</p>
+                
+                <div class="ai-analysis">
+                    <div class="sentiment-indicator bullish">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>Bullish Signal</span>
+                    </div>
+                    <div class="confidence-score">
+                        <span class="score-label">AI Confidence</span>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: 87%"></div>
+                            <span class="score-value">87%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="news-footer">
+                <div class="affected-assets">
+                    <span class="section-label">Impacted Assets:</span>
+                    <div class="asset-tags">
+                        <span class="asset-tag stock">SPY</span>
+                        <span class="asset-tag stock">QQQ</span>
+                        <span class="asset-tag forex">EUR/USD</span>
+                        <span class="asset-tag crypto">BTC</span>
+                    </div>
+                </div>
+                
+                <div class="ai-recommendation">
+                    <span class="recommendation-label">AI Recommendation:</span>
+                    <span class="recommendation-buy">BUY</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- News Card 2 -->
+        <div class="news-ai-card" data-category="crypto" data-sentiment="bullish">
+            <div class="news-header">
+                <div class="news-source">
+                    <img src="https://via.placeholder.com/20" alt="CoinDesk" class="source-logo">
+                    <span>CoinDesk</span>
+                </div>
+                <div class="news-time">4 hours ago</div>
+            </div>
+            
+            <div class="news-content">
+                <h3 class="news-title">Bitcoin ETF Approval Leads to Record Institutional Inflows</h3>
+                <p class="news-excerpt">Recent Bitcoin ETF approvals have resulted in unprecedented institutional investment, with daily inflows breaking all previous records...</p>
+                
+                <div class="ai-analysis">
+                    <div class="sentiment-indicator bullish">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>Strong Bullish</span>
+                    </div>
+                    <div class="confidence-score">
+                        <span class="score-label">AI Confidence</span>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: 92%"></div>
+                            <span class="score-value">92%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="news-footer">
+                <div class="affected-assets">
+                    <span class="section-label">Impacted Assets:</span>
+                    <div class="asset-tags">
+                        <span class="asset-tag crypto">BTC</span>
+                        <span class="asset-tag crypto">ETH</span>
+                        <span class="asset-tag crypto">SOL</span>
+                        <span class="asset-tag stock">MSTR</span>
+                    </div>
+                </div>
+                
+                <div class="ai-recommendation">
+                    <span class="recommendation-label">AI Recommendation:</span>
+                    <span class="recommendation-buy">STRONG BUY</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- News Card 3 -->
+        <div class="news-ai-card" data-category="stocks" data-sentiment="bearish">
+            <div class="news-header">
+                <div class="news-source">
+                    <img src="https://via.placeholder.com/20" alt="Reuters" class="source-logo">
+                    <span>Reuters</span>
+                </div>
+                <div class="news-time">6 hours ago</div>
+            </div>
+            
+            <div class="news-content">
+                <h3 class="news-title">Tech Giant Reports Lower-Than-Expected Q4 Earnings</h3>
+                <p class="news-excerpt">Major technology company misses revenue expectations, citing slowing demand in key markets and increased competition...</p>
+                
+                <div class="ai-analysis">
+                    <div class="sentiment-indicator bearish">
+                        <i class="fas fa-arrow-down"></i>
+                        <span>Bearish Signal</span>
+                    </div>
+                    <div class="confidence-score">
+                        <span class="score-label">AI Confidence</span>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: 78%"></div>
+                            <span class="score-value">78%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="news-footer">
+                <div class="affected-assets">
+                    <span class="section-label">Impacted Assets:</span>
+                    <div class="asset-tags">
+                        <span class="asset-tag stock">AAPL</span>
+                        <span class="asset-tag stock">MSFT</span>
+                        <span class="asset-tag stock">NVDA</span>
+                        <span class="asset-tag stock">TSLA</span>
+                    </div>
+                </div>
+                
+                <div class="ai-recommendation">
+                    <span class="recommendation-label">AI Recommendation:</span>
+                    <span class="recommendation-sell">SELL</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- News Card 4 -->
+        <div class="news-ai-card" data-category="forex" data-sentiment="neutral">
+            <div class="news-header">
+                <div class="news-source">
+                    <img src="https://via.placeholder.com/20" alt="Financial Times" class="source-logo">
+                    <span>Financial Times</span>
+                </div>
+                <div class="news-time">8 hours ago</div>
+            </div>
+            
+            <div class="news-content">
+                <h3 class="news-title">European Central Bank Maintains Current Interest Rates</h3>
+                <p class="news-excerpt">ECB holds rates steady amid mixed economic signals, with policymakers divided on the timing of future monetary policy adjustments...</p>
+                
+                <div class="ai-analysis">
+                    <div class="sentiment-indicator neutral">
+                        <i class="fas fa-minus"></i>
+                        <span>Neutral Outlook</span>
+                    </div>
+                    <div class="confidence-score">
+                        <span class="score-label">AI Confidence</span>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: 65%"></div>
+                            <span class="score-value">65%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="news-footer">
+                <div class="affected-assets">
+                    <span class="section-label">Impacted Assets:</span>
+                    <div class="asset-tags">
+                        <span class="asset-tag forex">EUR/USD</span>
+                        <span class="asset-tag forex">GBP/USD</span>
+                        <span class="asset-tag forex">USD/CHF</span>
+                    </div>
+                </div>
+                
+                <div class="ai-recommendation">
+                    <span class="recommendation-label">AI Recommendation:</span>
+                    <span class="recommendation-hold">HOLD</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- News Card 5 -->
+        <div class="news-ai-card" data-category="crypto" data-sentiment="bullish">
+            <div class="news-header">
+                <div class="news-source">
+                    <img src="https://via.placeholder.com/20" alt="The Block" class="source-logo">
+                    <span>The Block</span>
+                </div>
+                <div class="news-time">12 hours ago</div>
+            </div>
+            
+            <div class="news-content">
+                <h3 class="news-title">Ethereum Upgrade Boosts Network Efficiency by 40%</h3>
+                <p class="news-excerpt">Latest Ethereum protocol upgrade significantly improves transaction throughput and reduces gas fees, driving increased developer activity...</p>
+                
+                <div class="ai-analysis">
+                    <div class="sentiment-indicator bullish">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>Bullish Signal</span>
+                    </div>
+                    <div class="confidence-score">
+                        <span class="score-label">AI Confidence</span>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: 84%"></div>
+                            <span class="score-value">84%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="news-footer">
+                <div class="affected-assets">
+                    <span class="section-label">Impacted Assets:</span>
+                    <div class="asset-tags">
+                        <span class="asset-tag crypto">ETH</span>
+                        <span class="asset-tag crypto">LINK</span>
+                        <span class="asset-tag crypto">MATIC</span>
+                    </div>
+                </div>
+                
+                <div class="ai-recommendation">
+                    <span class="recommendation-label">AI Recommendation:</span>
+                    <span class="recommendation-buy">BUY</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading More Section -->
+    <div class="load-more-section">
+        <button class="load-more-btn">
+            <i class="fas fa-sync"></i>
+            Load More News
+        </button>
+        <div class="last-updated">
+            Last updated: <span id="update-time">{{ now.strftime('%H:%M:%S') }}</span>
+        </div>
+    </div>
+</div>
+
+<style>
+
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter functionality
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    const newsCards = document.querySelectorAll('.news-ai-card');
+    
+    filterButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const filterType = this.getAttribute('data-filter');
+            const sentimentType = this.getAttribute('data-sentiment');
+            
+            // Remove active class from all buttons in the same group
+            const buttonGroup = this.parentElement;
+            buttonGroup.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            this.classList.add('active');
+            
+            // Filter news cards
+            newsCards.forEach(card => {
+                let shouldShow = true;
+                
+                // Asset type filter
+                if (filterType && filterType !== 'all') {
+                    const cardCategory = card.getAttribute('data-category');
+                    if (cardCategory !== filterType) {
+                        shouldShow = false;
+                    }
+                }
+                
+                // Sentiment filter
+                if (sentimentType && sentimentType !== 'all') {
+                    const cardSentiment = card.getAttribute('data-sentiment');
+                    if (cardSentiment !== sentimentType) {
+                        shouldShow = false;
+                    }
+                }
+                
+                card.style.display = shouldShow ? 'block' : 'none';
+            });
+        });
+    });
+    
+    // Search functionality
+    const searchInput = document.getElementById('news-search');
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase();
+        
+        newsCards.forEach(card => {
+            const title = card.querySelector('.news-title').textContent.toLowerCase();
+            const excerpt = card.querySelector('.news-excerpt').textContent.toLowerCase();
+            const assets = card.querySelectorAll('.asset-tag');
+            
+            let hasMatch = title.includes(query) || excerpt.includes(query);
+            
+            if (!hasMatch) {
+                assets.forEach(asset => {
+                    if (asset.textContent.toLowerCase().includes(query)) {
+                        hasMatch = true;
+                    }
+                });
+            }
+            
+            card.style.display = hasMatch ? 'block' : 'none';
+        });
+    });
+    
+    // Load more functionality
+    const loadMoreBtn = document.querySelector('.load-more-btn');
+    loadMoreBtn.addEventListener('click', function() {
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        
+        // Simulate API call
+        setTimeout(() => {
+            this.innerHTML = '<i class="fas fa-sync"></i> Load More News';
+            document.getElementById('update-time').textContent = new Date().toLocaleTimeString();
+            showNotification('New news articles loaded successfully');
+        }, 1500);
+    });
+    
+    function showNotification(message) {
+        // Create a simple notification
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 100px;
+            right: 2rem;
+            background: var(--positive);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            z-index: 1000;
+            animation: slideInRight 0.3s ease;
+        `;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
+    
+    // Update time every minute
+    setInterval(() => {
+        document.getElementById('update-time').textContent = new Date().toLocaleTimeString();
+    }, 60000);
+});
+</script>
+{% endblock %}
