@@ -3,6 +3,6 @@
   "deploy": {
     "startCommand": "python app.py",
     "healthcheckPath": "/api/auth_status",
-    "healthcheckTimeout": 120
+    "healthcheckTimeout": 600
   }
 }
