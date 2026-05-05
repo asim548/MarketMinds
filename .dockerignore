@@ -1,0 +1,33 @@
+# Railpack / Railway respects .dockerignore — smaller context = faster, fewer timeouts.
+
+.git
+.github
+.idea
+.vscode
+
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+
+.env
+.env.*
+
+*.log
+*.sqlite3
+
+# Dev docs not needed at runtime
+*.md
+
+runs/
+static/uploads/
+static/results/
+
+# Local / oversized artifacts (match .gitignore intent)
+X_features_unified.csv
+unified_training_data.csv
+y_*_unified.csv
+*.zip
