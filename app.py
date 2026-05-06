@@ -1057,6 +1057,21 @@ def _rl_missing_training_inputs(root: Path) -> list[str]:
     return missing
 
 
+def _log_rl_dataset_source_status() -> None:
+    root = Path(__file__).resolve().parent
+    x_path, p_path = _rl_training_input_paths(root)
+    x_url = _rl_configured_dataset_url("RL_X_FEATURES_URL", "X_FEATURES_UNIFIED_URL")
+    p_url = _rl_configured_dataset_url("RL_UNIFIED_TRAINING_URL", "UNIFIED_TRAINING_DATA_URL")
+    _rl_missing_training_inputs(root)
+    print(
+        "[RL data] startup | "
+        f"{x_path.name}: {'present' if x_path.exists() else 'missing'} "
+        f"(url={'set' if x_url else 'unset'}) | "
+        f"{p_path.name}: {'present' if p_path.exists() else 'missing'} "
+        f"(url={'set' if p_url else 'unset'})"
+    )
+
+
 def _rl_maybe_run_scheduled_training() -> None:
     """Background scheduler: start a training job when the interval has elapsed."""
     if _rl_auto_train_disabled():
@@ -1768,6 +1783,7 @@ else:
 
 _railway_env = bool(os.environ.get("RAILWAY_ENVIRONMENT", "").strip())
 _rl_on_railway = os.environ.get("RL_AUTO_TRAIN_ON_RAILWAY", "").strip().lower() in ("1", "true", "yes")
+_log_rl_dataset_source_status()
 if not _railway_env or _rl_on_railway:
     _ensure_rl_auto_train_thread()
 else:
