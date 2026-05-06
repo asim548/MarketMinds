@@ -10,6 +10,8 @@ import plotly.graph_objects as go
 import os
 import threading
 import time
+import shutil
+import urllib.request
 from werkzeug.utils import secure_filename
 import importlib
 from pathlib import Path
@@ -1000,8 +1002,53 @@ def _rl_training_input_paths(root: Path) -> tuple[Path, Path]:
     return (root / "X_features_unified.csv", root / "unified_training_data.csv")
 
 
+def _rl_configured_dataset_url(*env_keys: str) -> str:
+    for key in env_keys:
+        val = (os.environ.get(key) or "").strip()
+        if val:
+            return val
+    return ""
+
+
+def _rl_download_if_missing(target_path: Path, *env_keys: str) -> bool:
+    """
+    Try to hydrate a missing RL dataset from a configured URL.
+    Returns True only when target_path exists after this call.
+    """
+    if target_path.exists():
+        return True
+    url = _rl_configured_dataset_url(*env_keys)
+    if not url:
+        return False
+    try:
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        with urllib.request.urlopen(url, timeout=120) as resp:  # nosec B310 - URL is admin-configured env
+            code = getattr(resp, "status", 200) or 200
+            if code >= 400:
+                raise OSError(f"HTTP {code}")
+            with open(target_path, "wb") as out:
+                shutil.copyfileobj(resp, out)
+        if not target_path.exists() or target_path.stat().st_size == 0:
+            raise OSError("Downloaded file is empty")
+        print(f"[RL data] Downloaded {target_path.name} from configured URL.")
+        return True
+    except Exception as e:
+        print(f"[RL data] Failed to download {target_path.name}: {e}")
+        return target_path.exists()
+
+
 def _rl_missing_training_inputs(root: Path) -> list[str]:
     x_path, p_path = _rl_training_input_paths(root)
+    _rl_download_if_missing(
+        x_path,
+        "RL_X_FEATURES_URL",
+        "X_FEATURES_UNIFIED_URL",
+    )
+    _rl_download_if_missing(
+        p_path,
+        "RL_UNIFIED_TRAINING_URL",
+        "UNIFIED_TRAINING_DATA_URL",
+    )
     missing: list[str] = []
     if not x_path.exists():
         missing.append(x_path.name)
