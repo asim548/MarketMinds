@@ -66,6 +66,65 @@ def healthcheck():
     """Must stay lightweight — Railway probes this before routing traffic."""
     return jsonify({"ok": True}), 200
 
+
+def _feature_readiness_snapshot() -> dict:
+    root = Path(__file__).resolve().parent
+    checks: dict[str, dict] = {}
+
+    # Database readiness: verify the configured DB is reachable.
+    db_ok = False
+    db_error = None
+    try:
+        with db.engine.connect() as conn:
+            conn.exec_driver_sql("SELECT 1")
+        db_ok = True
+    except Exception as e:
+        db_error = str(e)
+    checks["database"] = {
+        "ok": db_ok,
+        "uri": app.config.get("SQLALCHEMY_DATABASE_URI"),
+        "error": db_error,
+    }
+
+    google_cid = (os.environ.get("GOOGLE_CLIENT_ID") or "").strip()
+    google_csec = (os.environ.get("GOOGLE_CLIENT_SECRET") or "").strip()
+    google_redirect = (os.environ.get("GOOGLE_REDIRECT_URI") or "").strip()
+    checks["google_oauth"] = {
+        "ok": bool(google_cid and google_csec),
+        "redirect_uri_set": bool(google_redirect),
+        "enabled_in_app": bool(app.config.get("GOOGLE_OAUTH_ENABLED")),
+    }
+
+    fp_ok = True
+    fp_error = None
+    try:
+        importlib.import_module("financial_sentiment_v8.financial_sentiment_v8.fyp_enhanced.app")
+    except Exception as e:
+        fp_ok = False
+        fp_error = str(e)
+    checks["financialpulse"] = {"ok": fp_ok, "error": fp_error}
+
+    missing_rl_inputs = _rl_missing_training_inputs(root)
+    checks["rl_training_data"] = {
+        "ok": not missing_rl_inputs,
+        "missing_files": missing_rl_inputs,
+    }
+
+    return {
+        "ok": all(c.get("ok", False) for c in checks.values()),
+        "checks": checks,
+    }
+
+
+@app.route("/health/ready")
+def health_ready():
+    """
+    Readiness endpoint for production debugging.
+    Returns 200 only when core features are configured and reachable.
+    """
+    snap = _feature_readiness_snapshot()
+    return jsonify(snap), (200 if snap["ok"] else 503)
+
 # Pick up template edits without restarting (dev-friendly; disable in strict production if needed)
 app.config['TEMPLATES_AUTO_RELOAD'] = os.environ.get('MARKETMINDS_DISABLE_TEMPLATE_RELOAD', '').lower() not in (
     '1',
@@ -921,8 +980,9 @@ def _rl_auto_train_status(models_dir: Path) -> dict:
         except (ValueError, TypeError):
             next_due = None
     last_iso = last if isinstance(last, str) else None
+    missing_inputs = _rl_missing_training_inputs(Path(__file__).resolve().parent)
     return {
-        "enabled": not _rl_auto_train_disabled(),
+        "enabled": (not _rl_auto_train_disabled()) and (not missing_inputs),
         "interval_label": interval_label,
         "interval_minutes": interval_minutes,
         "interval_hours": td.total_seconds() / 3600.0,
@@ -932,7 +992,22 @@ def _rl_auto_train_status(models_dir: Path) -> dict:
         "next_due_display": _rl_iso_utc_short_display(next_due),
         "episodes": int(os.environ.get("RL_AUTO_TRAIN_EPISODES", "4") or 4),
         "max_rows_default": int(os.environ.get("RL_AUTO_TRAIN_MAX_ROWS", "25000") or 25000),
+        "missing_training_inputs": missing_inputs,
     }
+
+
+def _rl_training_input_paths(root: Path) -> tuple[Path, Path]:
+    return (root / "X_features_unified.csv", root / "unified_training_data.csv")
+
+
+def _rl_missing_training_inputs(root: Path) -> list[str]:
+    x_path, p_path = _rl_training_input_paths(root)
+    missing: list[str] = []
+    if not x_path.exists():
+        missing.append(x_path.name)
+    if not p_path.exists():
+        missing.append(p_path.name)
+    return missing
 
 
 def _rl_maybe_run_scheduled_training() -> None:
@@ -940,6 +1015,13 @@ def _rl_maybe_run_scheduled_training() -> None:
     if _rl_auto_train_disabled():
         return
     root = Path(__file__).resolve().parent
+    missing_inputs = _rl_missing_training_inputs(root)
+    if missing_inputs:
+        print(
+            "[RL auto-train] skipped: missing input file(s): "
+            + ", ".join(missing_inputs)
+        )
+        return
     models_dir = root / "rl" / "models"
     interval_td = _rl_auto_train_interval_timedelta()
     st = _rl_read_auto_train_state(models_dir)
@@ -1246,10 +1328,18 @@ def _rl_training_job(
     err_summary: str | None = None
     try:
         from rl.train import train_rl_agent
+        x_path, price_path = _rl_training_input_paths(root)
+        missing_inputs = _rl_missing_training_inputs(root)
+        if missing_inputs:
+            raise FileNotFoundError(
+                "Missing RL input file(s): "
+                + ", ".join(missing_inputs)
+                + ". Upload/generate them in the app root before training."
+            )
 
         train_rl_agent(
-            root / "X_features_unified.csv",
-            root / "unified_training_data.csv",
+            x_path,
+            price_path,
             output_dir=models_dir,
             n_episodes=episodes,
             log_file=log_path,
@@ -1307,6 +1397,16 @@ def api_rl_train():
     training_acknowledged = bool(data.get("training_acknowledged", False))
     dueling = bool(data.get("dueling", False))
     prioritized = bool(data.get("prioritized", False))
+    root = Path(__file__).resolve().parent
+    missing_inputs = _rl_missing_training_inputs(root)
+    if missing_inputs:
+        return jsonify(
+            {
+                "status": "missing_inputs",
+                "message": "RL training data files are missing on this deployment.",
+                "missing_files": missing_inputs,
+            }
+        ), 400
 
     started = _rl_start_training_worker(
         episodes=n,
