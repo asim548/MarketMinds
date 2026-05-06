@@ -4,8 +4,9 @@ SQLite configuration for MarketMinds.ai.
 
 import os
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from sqlalchemy import inspect, text
+from sqlalchemy import create_engine, inspect, text
 
 from database import db
 
@@ -19,6 +20,35 @@ class DatabaseConfig:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     @staticmethod
+    def _sqlite_url() -> str:
+        return f"sqlite:///{DatabaseConfig.DEFAULT_DB_PATH}"
+
+    @staticmethod
+    def _with_connect_timeout(url: str, seconds: int = 5) -> str:
+        """Ensure Postgres URLs fail fast instead of stalling startup."""
+        try:
+            parts = urlsplit(url)
+            q = dict(parse_qsl(parts.query, keep_blank_values=True))
+            if "connect_timeout" not in q:
+                q["connect_timeout"] = str(seconds)
+            return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(q), parts.fragment))
+        except Exception:
+            return url
+
+    @staticmethod
+    def _postgres_reachable(url: str) -> bool:
+        """Best-effort connectivity probe; fallback to SQLite when unreachable."""
+        try:
+            engine = create_engine(url, pool_pre_ping=True)
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            engine.dispose()
+            return True
+        except Exception as e:
+            print(f"[DB] PostgreSQL preflight failed: {e}")
+            return False
+
+    @staticmethod
     def _resolved_database_url() -> str:
         """
         Prefer MARKETMINDS_DATABASE_URL if set (avoids Railway Postgres plugin
@@ -29,11 +59,11 @@ class DatabaseConfig:
         """
         explicit = (os.environ.get("MARKETMINDS_DATABASE_URL") or "").strip()
         if explicit:
-            return explicit
-
-        url = (os.environ.get("DATABASE_URL") or "").strip()
-        if not url:
-            return f"sqlite:///{DatabaseConfig.DEFAULT_DB_PATH}"
+            url = explicit
+        else:
+            url = (os.environ.get("DATABASE_URL") or "").strip()
+            if not url:
+                return DatabaseConfig._sqlite_url()
 
         if url.startswith(("postgres://", "postgresql://")):
             try:
@@ -46,7 +76,12 @@ class DatabaseConfig:
                         "[DB] DATABASE_URL is PostgreSQL but no psycopg/psycopg2 driver found; "
                         "using local SQLite instead. Set MARKETMINDS_DATABASE_URL or install psycopg2-binary."
                     )
-                    return f"sqlite:///{DatabaseConfig.DEFAULT_DB_PATH}"
+                    return DatabaseConfig._sqlite_url()
+
+            url = DatabaseConfig._with_connect_timeout(url, seconds=5)
+            if not DatabaseConfig._postgres_reachable(url):
+                print("[DB] Falling back to SQLite because PostgreSQL is unreachable at boot.")
+                return DatabaseConfig._sqlite_url()
 
         return url
 
