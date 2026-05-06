@@ -238,7 +238,19 @@ def allowed_file(filename):
 data_fetcher = DataFetcher()
 ai_predictor = AIPredictor(model_path='models_unified/')
 trading_api = TradingAPI(data_fetcher)
-pattern_recognizer = PatternRecognizer(model_path='best.pt')
+pattern_recognizer = None
+_pattern_recognizer_lock = threading.Lock()
+
+
+def get_pattern_recognizer():
+    """Lazy-load pattern model so web server can bind port quickly on Render."""
+    global pattern_recognizer
+    if pattern_recognizer is not None:
+        return pattern_recognizer
+    with _pattern_recognizer_lock:
+        if pattern_recognizer is None:
+            pattern_recognizer = PatternRecognizer(model_path='best.pt')
+    return pattern_recognizer
 
 LIVE_ECONOMIC_EVENT = {
     'event_type': 'FOMC',
@@ -572,14 +584,15 @@ def recognize_patterns():
         if file.filename == '':
             return jsonify({'success': False, 'error': 'No file selected'}), 400
 
-        if not pattern_recognizer.allowed_file(file.filename):
+        pr = get_pattern_recognizer()
+        if not pr.allowed_file(file.filename):
             return jsonify({
                 'success': False,
                 'error': 'Invalid file type. Allowed types are png, jpg, jpeg, gif.'
             }), 400
 
         file_bytes = file.read()
-        result = pattern_recognizer.predict(file_bytes, file.filename)
+        result = pr.predict(file_bytes, file.filename)
         return jsonify(result)
 
     except Exception as e:
