@@ -1,5 +1,10 @@
 import os
 
+# Ultralytics reads YOLO_CONFIG_DIR at import time; set before any code imports ultralytics/YOLO.
+if not (os.environ.get("YOLO_CONFIG_DIR") or "").strip():
+    _ytmp = os.environ.get("TMPDIR") or os.environ.get("TEMP") or "/tmp"
+    os.environ["YOLO_CONFIG_DIR"] = os.path.join(_ytmp, "Ultralytics")
+
 # Render (and other hosts using Socket.IO over WebSockets): Werkzeug cannot upgrade
 # WebSocket connections — use eventlet. Safe to call monkey_patch twice if gunicorn
 # also patches (eventlet documents idempotent behavior).

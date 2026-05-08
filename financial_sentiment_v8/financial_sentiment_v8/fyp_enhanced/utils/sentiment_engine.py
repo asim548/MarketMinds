@@ -27,6 +27,8 @@ from typing import Optional
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from textblob import TextBlob
 
+from .hf_pipelines import get_finbert_pipeline
+
 logger = logging.getLogger(__name__)
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -366,51 +368,33 @@ def _count_phrases_with_negation(text_lower: str) -> tuple[float, float]:
 
 class FinBERTLayer:
     """
-    Wraps ProsusAI/finbert from HuggingFace.
-    Falls back gracefully if transformers/torch not installed.
-    Cache the pipeline singleton — loading takes ~4 seconds, inference ~80ms.
+    ProsusAI/finbert via shared lazy pipeline (see hf_pipelines.py).
+    Loads on first use — avoids duplicate FinBERT RAM and huge boot spike on small hosts.
     """
-    _instance = None
-    _available = None
 
     def __init__(self):
+        self._pipeline_checked = False
         self._pipeline = None
-        self._load()
 
-    def _load(self):
-        if FinBERTLayer._available is False:
+    def _ensure(self) -> None:
+        if self._pipeline_checked:
             return
-        try:
-            from transformers import pipeline as hf_pipeline
-            logger.info("[FinBERT] Loading ProsusAI/finbert...")
-            self._pipeline = hf_pipeline(
-                "text-classification",
-                model="ProsusAI/finbert",
-                top_k=None,          # return all 3 class scores
-                device=-1,           # CPU
-                truncation=True,
-                max_length=512,
-            )
-            FinBERTLayer._available = True
-            logger.info("[FinBERT] Loaded successfully.")
-        except Exception as e:
-            FinBERTLayer._available = False
-            logger.warning(f"[FinBERT] Not available ({e}). Falling back to VADER.")
+        self._pipeline_checked = True
+        self._pipeline = get_finbert_pipeline()
 
     @property
     def available(self) -> bool:
-        return FinBERTLayer._available is True and self._pipeline is not None
+        self._ensure()
+        return self._pipeline is not None
 
-    def analyze(self, text: str) -> float:
+    def analyze(self, text: str) -> Optional[float]:
         """
-        Returns a score in [-1.0, 1.0].
-        FinBERT outputs: positive, negative, neutral.
-        score = P(positive) - P(negative)
+        Returns score in [-1.0, 1.0], or None if FinBERT is unavailable.
         """
-        if not self.available:
-            return 0.0
+        self._ensure()
+        if self._pipeline is None:
+            return None
         try:
-            # Truncate to 512 tokens worth of text
             trunc = text[:1500]
             results = self._pipeline(trunc)[0]
             label_map = {r["label"].lower(): r["score"] for r in results}
@@ -419,7 +403,7 @@ class FinBERTLayer:
             return round(pos - neg, 4)
         except Exception as e:
             logger.warning(f"[FinBERT] Inference error: {e}")
-            return 0.0
+            return None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -536,8 +520,10 @@ class FinancialSentimentAnalyzer:
         self._augment_vader()
         self.finbert = FinBERTLayer()
         self._llm_on = bool(os.getenv("ANTHROPIC_API_KEY"))
-        logger.info(f"[Analyzer] FinBERT={'ON' if self.finbert.available else 'OFF (fallback)'} "
-                    f"LLM={'ON' if self._llm_on else 'OFF'}")
+        logger.info(
+            "[Analyzer] FinBERT=lazy-shared (loads on first sentiment job) LLM=%s",
+            "ON" if self._llm_on else "OFF",
+        )
 
     def _augment_vader(self):
         """Add financial domain terms to VADER's lexicon."""
@@ -589,7 +575,7 @@ class FinancialSentimentAnalyzer:
         custom_score = max(-1.0, min(1.0, net_kw * 0.25))
 
         # ── Layer 4: FinBERT ───────────────────────────────────────────
-        finbert_score = self.finbert.analyze(text) if self.finbert.available else None
+        finbert_score = self.finbert.analyze(text)
 
         # ── Layer 5: LLM (optional) ────────────────────────────────────
         llm_result = {"score": 0.0, "reasoning": "", "key_signal": "",

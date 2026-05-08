@@ -34,79 +34,22 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional
 
+from . import hf_pipelines
+
 logger = logging.getLogger(__name__)
 
 # ── Model cache dir ────────────────────────────────────────────────────────────
 MODEL_DIR = Path(__file__).parent.parent / "ml_models"
 MODEL_DIR.mkdir(exist_ok=True)
 
-# ── Transformer pipelines (singleton, loaded once) ────────────────────────────
-_finbert_pipe  = None
-_distilrob_pipe = None
-_model_lock = threading.Lock()
-_models_loaded = False
-
-
-def _load_transformer_models():
-    global _finbert_pipe, _distilrob_pipe, _models_loaded
-    with _model_lock:
-        if _models_loaded:
-            return
-        try:
-            from transformers import pipeline as hf_pipeline
-            logger.info("[ML] Loading FinBERT (ProsusAI/finbert)...")
-            _finbert_pipe = hf_pipeline(
-                "text-classification",
-                model="ProsusAI/finbert",
-                top_k=None,
-                device=-1,
-                truncation=True,
-                max_length=512,
-            )
-            logger.info("[ML] FinBERT loaded ✓")
-        except Exception as e:
-            logger.warning(f"[ML] FinBERT unavailable: {e}")
-
-        try:
-            from transformers import pipeline as hf_pipeline
-            logger.info("[ML] Loading mrm8488/distilroberta-finetuned-financial-news-sentiment-analysis...")
-            _distilrob_pipe = hf_pipeline(
-                "text-classification",
-                model="mrm8488/distilroberta-finetuned-financial-news-sentiment-analysis",
-                top_k=None,
-                device=-1,
-                truncation=True,
-                max_length=512,
-            )
-            logger.info("[ML] DistilRoBERTa loaded ✓")
-        except Exception as e:
-            logger.warning(f"[ML] DistilRoBERTa unavailable: {e}")
-
-        _models_loaded = True
-
-
 def _finbert_score(text: str) -> float:
-    """Returns [-1, 1]: P(positive) - P(negative)"""
-    if _finbert_pipe is None:
-        return 0.0
-    try:
-        res = _finbert_pipe(text[:1500])[0]
-        lmap = {r["label"].lower(): r["score"] for r in res}
-        return round(lmap.get("positive", 0) - lmap.get("negative", 0), 4)
-    except Exception:
-        return 0.0
+    """Returns [-1, 1]: P(positive) - P(negative); shared lazy pipeline."""
+    return hf_pipelines.finbert_score(text)
 
 
 def _distilroberta_score(text: str) -> float:
-    """Returns [-1, 1]"""
-    if _distilrob_pipe is None:
-        return 0.0
-    try:
-        res = _distilrob_pipe(text[:1500])[0]
-        lmap = {r["label"].lower(): r["score"] for r in res}
-        return round(lmap.get("positive", 0) - lmap.get("negative", 0), 4)
-    except Exception:
-        return 0.0
+    """Returns [-1, 1]; skipped on Render unless MARKETMINDS_ENABLE_DISTIL_ROBERTA=1."""
+    return hf_pipelines.distilroberta_score(text)
 
 
 # ── VADER augmented ───────────────────────────────────────────────────────────
@@ -658,8 +601,8 @@ def get_gbm() -> GBMMetaLearner:
 
 
 def startup_load_models():
-    """Called at app startup to pre-load models only (no training)."""
-    threading.Thread(target=_load_transformer_models, daemon=True).start()
+    """Reserved for startup hooks; HF models load lazily via hf_pipelines (smaller RAM spike)."""
+    logger.info("[ML] HF sentiment pipelines: lazy shared loading (see hf_pipelines.py).")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
