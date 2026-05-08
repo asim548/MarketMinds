@@ -204,7 +204,7 @@ _last_pushed_news_ids = set()
 
 SOURCE_AUTHORITY = {
     "CoinTelegraph": 0.9, "CoinDesk": 0.95, "CNBC": 1.0,
-    "Yahoo Finance": 0.85, "OilPrice": 0.8, "FX Street": 0.85,
+    "Yahoo Finance": 0.85, "ForexLive": 0.85, "OilPrice": 0.8,
     "Decrypt": 0.75, "Seeking Alpha": 0.8,
 }
 

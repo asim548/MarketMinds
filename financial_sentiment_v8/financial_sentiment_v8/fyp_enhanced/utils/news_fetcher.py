@@ -20,6 +20,8 @@ import hashlib
 import time
 import logging
 import threading
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -44,8 +46,9 @@ RSS_FEEDS = [
     # Energy / Commodities
     {"name": "OilPrice",      "url": "https://oilprice.com/rss/main", "category": "Energy"},
     
-    # Forex
-    {"name": "FX Street",     "url": "https://www.fxstreet.com/rss/news", "category": "Forex"},
+    # Forex — fxstreet.com/rss/* serves Cloudflare bot interstitials (HTML) to automated clients → invalid XML.
+    # ForexLive serves plain RSS and matches FXStreet-style macro/FX coverage without CF wall in typical fetches.
+    {"name": "ForexLive", "url": "https://www.forexlive.com/feed/news", "category": "Forex"},
 ]
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -66,6 +69,48 @@ _source_health: dict[str, dict] = {
 _health_lock = threading.Lock()
 
 MAX_CONSECUTIVE_FAILS = 3
+
+_RSS_FETCH_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0"
+    ),
+    "Accept": "application/rss+xml, application/xml, text/xml, */*;q=0.8",
+}
+
+
+class FeedNotXmlError(Exception):
+    """Upstream returned HTML or a bot wall instead of RSS; retries usually won't help."""
+
+
+def _download_rss_body(url: str, timeout: float = 20.0) -> bytes:
+    req = urllib.request.Request(url, headers=_RSS_FETCH_HEADERS)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read()
+    except urllib.error.HTTPError as e:
+        try:
+            body = e.read()
+        except Exception:
+            body = b""
+        if _response_looks_like_html_not_rss(body):
+            raise FeedNotXmlError(f"HTTP {e.code}: HTML body (not RSS XML)") from e
+        raise
+
+
+def _response_looks_like_html_not_rss(body: bytes) -> bool:
+    """Detect Cloudflare challenges and generic HTML error pages mistaken for feeds."""
+    probe = body[:4096].lstrip().lower()
+    if probe.startswith((b"<!doctype html", b"<html")):
+        return True
+    if b"challenge-platform" in probe or b"cf-browser-verification" in probe:
+        return True
+    if b"enable javascript" in probe and b"cookie" in probe:
+        return True
+    if b"security verification" in probe or b"verify you are human" in probe:
+        return True
+    if b"<title>just a moment" in probe:
+        return True
+    return False
 
 
 def get_source_health() -> dict:
@@ -113,10 +158,13 @@ def _unhealthy_ratio() -> float:
 def _fetch_with_retry(source: dict, max_retries: int = 3) -> list[dict]:
     for attempt in range(max_retries):
         try:
-            feed = feedparser.parse(
-                source["url"],
-                request_headers={"User-Agent": "FinancialPulse/3.1 (+https://github.com/yourname/financialpulse)"},
-            )
+            raw = _download_rss_body(source["url"])
+            if _response_looks_like_html_not_rss(raw):
+                raise FeedNotXmlError(
+                    "Non-RSS response (likely bot protection / HTML). "
+                    "Replace feed URL or use a provider that serves XML to automated clients."
+                )
+            feed = feedparser.parse(raw)
             if feed.bozo and not feed.entries:
                 raise ValueError(f"Bozo: {feed.bozo_exception}")
 
@@ -144,6 +192,11 @@ def _fetch_with_retry(source: dict, max_retries: int = 3) -> list[dict]:
 
             _mark_success(source["name"], len(items))
             return items
+
+        except FeedNotXmlError as e:
+            logger.warning(f"[Fetcher] {source['name']}: {e}")
+            _mark_failure(source["name"], str(e))
+            return []
 
         except Exception as e:
             wait = (2 ** attempt) + 0.5
