@@ -2,5 +2,6 @@
 services:
   - type: web
     runtime: python
-    buildCommand: pip install --upgrade pip && pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cpu && pip install -r requirements.txt
+    buildCommand: bash scripts/render-pip-install.sh
+    # Must bind $PORT (avoid `python app.py` in the dashboard — Render probes the port before FP finishes loading).
     startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT app:app

@@ -1,8 +1,15 @@
 import os
 
-# Ultralytics appends "Ultralytics" internally — use a writable parent (e.g. /tmp), not .../Ultralytics.
-if not (os.environ.get("YOLO_CONFIG_DIR") or "").strip():
-    os.environ["YOLO_CONFIG_DIR"] = os.environ.get("TMPDIR") or os.environ.get("TEMP") or "/tmp"
+# Ultralytics writes under YOLO_CONFIG_DIR; ensure it exists (avoids nested /Ultralytics permission warnings).
+_yolo_cfg = (os.environ.get("YOLO_CONFIG_DIR") or "").strip()
+if not _yolo_cfg:
+    _tw = os.environ.get("TMPDIR") or os.environ.get("TEMP") or "/tmp"
+    _yolo_cfg = os.path.join(_tw, "mm-ultralytics")
+os.environ["YOLO_CONFIG_DIR"] = _yolo_cfg
+try:
+    os.makedirs(os.environ["YOLO_CONFIG_DIR"], exist_ok=True)
+except OSError:
+    pass
 
 # Render (and other hosts using Socket.IO over WebSockets): Werkzeug cannot upgrade
 # WebSocket connections — use eventlet. Safe to call monkey_patch twice if gunicorn
@@ -12,7 +19,21 @@ if os.environ.get("RENDER"):
 
     eventlet.monkey_patch()
 
-from flask import Flask, render_template, make_response, request, redirect, url_for, session, jsonify, g, flash, Blueprint, send_from_directory
+from flask import (
+    Flask,
+    Blueprint,
+    abort,
+    flash,
+    g,
+    jsonify,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    send_from_directory,
+    session,
+    url_for,
+)
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -203,6 +224,32 @@ socketio = SocketIO(
     logger=False,
     engineio_logger=False,
 )
+
+# Render runs a port probe shortly after starting the process; FinancialPulse imports ML stacks and can block for minutes.
+# Defer integration on Render (see integration block below) and gate normal routes until it completes so probes hit /health first.
+_FP_INTEGRATION_READY = threading.Event()
+
+
+@app.before_request
+def _wait_financialpulse_on_render():
+    if not os.environ.get("RENDER"):
+        return None
+    path = request.path or ""
+    if (
+        path == "/"
+        or path == "/api/auth_status"
+        or path.startswith("/static")
+        or path.startswith("/favicon")
+        or path in ("/health", "/health/ready")
+        or path.startswith("/login")
+    ):
+        return None
+    if _FP_INTEGRATION_READY.is_set():
+        return None
+    if not _FP_INTEGRATION_READY.wait(timeout=180):
+        abort(503)
+    return None
+
 
 # Database Configuration (SQLite)
 DatabaseConfig.init_app(app)
@@ -1805,8 +1852,21 @@ def _should_integrate_financialpulse_on_boot() -> bool:
     return force_enable or not is_railway
 
 
+def _run_financialpulse_integration() -> None:
+    try:
+        _integrate_financialpulse(app, socketio)
+    except Exception as e:
+        print(f"[FinancialPulse] integration failed: {e}")
+    finally:
+        _FP_INTEGRATION_READY.set()
+
+
 if _should_integrate_financialpulse_on_boot():
-    _integrate_financialpulse(app, socketio)
+    if os.environ.get("RENDER"):
+        print("[FinancialPulse] Deferred integration on Render — binding HTTP port before heavy imports.")
+        threading.Thread(target=_run_financialpulse_integration, daemon=True, name="fp-integrate-render").start()
+    else:
+        _run_financialpulse_integration()
 else:
     print(
         "[FinancialPulse] Skipped during boot on Railway to improve startup healthcheck reliability. "
@@ -1822,6 +1882,8 @@ else:
             "info",
         )
         return redirect(url_for("dashboard"))
+
+    _FP_INTEGRATION_READY.set()
 
 _railway_env = bool(os.environ.get("RAILWAY_ENVIRONMENT", "").strip())
 _rl_on_railway = os.environ.get("RL_AUTO_TRAIN_ON_RAILWAY", "").strip().lower() in ("1", "true", "yes")
