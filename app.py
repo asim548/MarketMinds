@@ -1,3 +1,13 @@
+import os
+
+# Render (and other hosts using Socket.IO over WebSockets): Werkzeug cannot upgrade
+# WebSocket connections — use eventlet. Safe to call monkey_patch twice if gunicorn
+# also patches (eventlet documents idempotent behavior).
+if os.environ.get("RENDER"):
+    import eventlet
+
+    eventlet.monkey_patch()
+
 from flask import Flask, render_template, make_response, request, redirect, url_for, session, jsonify, g, flash, Blueprint, send_from_directory
 import yfinance as yf
 import pandas as pd
@@ -7,7 +17,6 @@ import json
 import plotly
 import plotly.graph_objects as go
 
-import os
 import threading
 import time
 import shutil
@@ -170,10 +179,26 @@ def _log_rl_template_marker():
 
 _log_rl_template_marker()
 
+
+def _socketio_async_mode() -> str:
+    explicit = (os.environ.get("SOCKETIO_ASYNC_MODE") or "").strip().lower()
+    if explicit in ("threading", "eventlet", "gevent"):
+        return explicit
+    # Match Procfile / production: gunicorn --worker-class eventlet (see Procfile).
+    if os.environ.get("RENDER"):
+        return "eventlet"
+    return "threading"
+
+
 # ── Socket.IO (required for FinancialPulse real-time features) ──────────────
 # Must be created on the MarketMinds app BEFORE integrating FinancialPulse
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading",
-                    logger=False, engineio_logger=False)
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode=_socketio_async_mode(),
+    logger=False,
+    engineio_logger=False,
+)
 
 # Database Configuration (SQLite)
 DatabaseConfig.init_app(app)
