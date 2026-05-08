@@ -6,10 +6,9 @@ import os
 import shutil
 from werkzeug.utils import secure_filename
 
-# Ultralytics writes settings.json under YOLO_CONFIG_DIR; Render's default ~/.config is not writable.
+# Writable parent only — Ultralytics adds its own subfolder under YOLO_CONFIG_DIR.
 if not (os.environ.get("YOLO_CONFIG_DIR") or "").strip():
-    _tmp = os.environ.get("TMPDIR") or os.environ.get("TEMP") or "/tmp"
-    os.environ["YOLO_CONFIG_DIR"] = os.path.join(_tmp, "Ultralytics")
+    os.environ["YOLO_CONFIG_DIR"] = os.environ.get("TMPDIR") or os.environ.get("TEMP") or "/tmp"
 
 # Try to import torch gracefully
 try:

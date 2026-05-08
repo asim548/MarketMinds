@@ -3,8 +3,8 @@ Shared Hugging Face sentiment pipelines for FinancialPulse.
 
 - One FinBERT instance for both sentiment_engine and ml_engine (avoids duplicate RAM).
 - Lazy loading: models load on first scoring call, not at import time (faster port bind on Render).
-- On Render, DistilRoBERTa is skipped by default unless MARKETMINDS_ENABLE_DISTIL_ROBERTA=1
-  (512Mi tiers OOM easily with two transformers + CUDA stacks).
+- On Render, FinBERT is skipped by default unless MARKETMINDS_ENABLE_FINBERT=1 (512Mi OOMs).
+- DistilRoBERTa skipped on Render unless MARKETMINDS_ENABLE_DISTIL_ROBERTA=1.
 """
 
 from __future__ import annotations
@@ -21,6 +21,16 @@ _finbert_pipe: Any = None
 _distil_pipe: Any = None
 _finbert_failed = False
 _distil_failed = False
+_finbert_skip_logged = False
+
+
+def skip_finbert() -> bool:
+    if (os.getenv("MARKETMINDS_DISABLE_FINBERT") or "").strip().lower() in ("1", "true", "yes"):
+        return True
+    if (os.getenv("MARKETMINDS_ENABLE_FINBERT") or "").strip().lower() in ("1", "true", "yes"):
+        return False
+    # 512Mi Render tiers cannot hold FinBERT + scipy/sklearn/Flask/YOLO stacks reliably.
+    return bool(os.getenv("RENDER"))
 
 
 def skip_distilroberta() -> bool:
@@ -32,7 +42,15 @@ def skip_distilroberta() -> bool:
 
 
 def get_finbert_pipeline() -> Optional[Any]:
-    global _finbert_pipe, _finbert_failed
+    global _finbert_pipe, _finbert_failed, _finbert_skip_logged
+    if skip_finbert():
+        if not _finbert_skip_logged:
+            _finbert_skip_logged = True
+            logger.info(
+                "[HF] FinBERT skipped on Render by default (RAM). "
+                "Set MARKETMINDS_ENABLE_FINBERT=1 after moving to a larger instance (e.g. >= 2 GiB RAM)."
+            )
+        return None
     if _finbert_failed:
         return None
     with _lock:
