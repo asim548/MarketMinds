@@ -37,6 +37,8 @@ appdirs==1.4.4
 outcome==1.3.0.post0
 torch==2.3.1
 torchvision==0.18.1
+# FinBERT + DistilRoBERTa (sentiment_engine + ml_engine); HF models download on first cold start
+transformers>=4.38.0,<5
 gymnasium>=0.29.0
 scikit-learn>=1.3.0
 lightgbm>=4.0.0
