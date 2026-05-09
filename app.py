@@ -12,12 +12,11 @@ except OSError:
     pass
 
 # Render (and other hosts using Socket.IO over WebSockets): Werkzeug cannot upgrade
-# WebSocket connections — use eventlet. Safe to call monkey_patch twice if gunicorn
-# also patches (eventlet documents idempotent behavior).
+# WebSocket connections — use gevent in production.
 if os.environ.get("RENDER"):
-    import eventlet
+    from gevent import monkey
 
-    eventlet.monkey_patch()
+    monkey.patch_all()
 
 from flask import (
     Flask,
@@ -210,9 +209,9 @@ def _socketio_async_mode() -> str:
     explicit = (os.environ.get("SOCKETIO_ASYNC_MODE") or "").strip().lower()
     if explicit in ("threading", "eventlet", "gevent"):
         return explicit
-    # Match Procfile / production: gunicorn --worker-class eventlet (see Procfile).
+    # Match Procfile / production: gunicorn gevent websocket worker.
     if os.environ.get("RENDER"):
-        return "eventlet"
+        return "gevent"
     return "threading"
 
 
