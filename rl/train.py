@@ -14,6 +14,7 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 from rl import RL_MODELS_DIR
+from rl.dataset_fetch import missing_training_inputs, training_csv_paths
 from rl.dqn_agent import DoubleDQNAgent
 from rl.production import (
     is_full_training_confirmed,
@@ -263,11 +264,9 @@ def train_rl_agent(
 
 def _default_paths():
     root = Path(__file__).resolve().parent.parent
-    return (
-        root / "X_features_unified.csv",
-        root / "unified_training_data.csv",
-        RL_MODELS_DIR,
-    )
+    missing_training_inputs(root)
+    x_path, p_path = training_csv_paths(root)
+    return x_path, p_path, RL_MODELS_DIR
 
 
 if __name__ == "__main__":

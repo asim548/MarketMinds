@@ -41,8 +41,6 @@ import plotly.graph_objects as go
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, wait
-import shutil
-import urllib.request
 from werkzeug.utils import secure_filename
 import importlib
 from pathlib import Path
@@ -86,6 +84,8 @@ except ImportError:
 from utils.data_fetcher import DataFetcher
 from utils.ai_predictor import AIPredictor
 from utils.trading_api import TradingAPI
+from rl.dataset_fetch import log_startup_dataset_status, missing_training_inputs, training_csv_paths
+
 # PatternRecognizer pulls torch/ultralytics — import inside get_pattern_recognizer() for faster Render boots.
 # --- END UTILITY IMPORTS ---
 
@@ -137,7 +137,7 @@ def _feature_readiness_snapshot() -> dict:
         fp_error = str(e)
     checks["financialpulse"] = {"ok": fp_ok, "error": fp_error}
 
-    missing_rl_inputs = _rl_missing_training_inputs(root)
+    missing_rl_inputs = missing_training_inputs(root)
     checks["rl_training_data"] = {
         "ok": not missing_rl_inputs,
         "missing_files": missing_rl_inputs,
@@ -1245,7 +1245,7 @@ def _rl_auto_train_status(models_dir: Path) -> dict:
         except (ValueError, TypeError):
             next_due = None
     last_iso = last if isinstance(last, str) else None
-    missing_inputs = _rl_missing_training_inputs(Path(__file__).resolve().parent)
+    missing_inputs = missing_training_inputs(Path(__file__).resolve().parent)
     return {
         "enabled": (not _rl_auto_train_disabled()) and (not missing_inputs),
         "interval_label": interval_label,
@@ -1261,86 +1261,12 @@ def _rl_auto_train_status(models_dir: Path) -> dict:
     }
 
 
-def _rl_training_input_paths(root: Path) -> tuple[Path, Path]:
-    return (root / "X_features_unified.csv", root / "unified_training_data.csv")
-
-
-def _rl_configured_dataset_url(*env_keys: str) -> str:
-    for key in env_keys:
-        val = (os.environ.get(key) or "").strip()
-        if val:
-            return val
-    return ""
-
-
-def _rl_download_if_missing(target_path: Path, *env_keys: str) -> bool:
-    """
-    Try to hydrate a missing RL dataset from a configured URL.
-    Returns True only when target_path exists after this call.
-    """
-    if target_path.exists():
-        return True
-    url = _rl_configured_dataset_url(*env_keys)
-    if not url:
-        return False
-    try:
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        with urllib.request.urlopen(url, timeout=120) as resp:  # nosec B310 - URL is admin-configured env
-            code = getattr(resp, "status", 200) or 200
-            if code >= 400:
-                raise OSError(f"HTTP {code}")
-            with open(target_path, "wb") as out:
-                shutil.copyfileobj(resp, out)
-        if not target_path.exists() or target_path.stat().st_size == 0:
-            raise OSError("Downloaded file is empty")
-        print(f"[RL data] Downloaded {target_path.name} from configured URL.")
-        return True
-    except Exception as e:
-        print(f"[RL data] Failed to download {target_path.name}: {e}")
-        return target_path.exists()
-
-
-def _rl_missing_training_inputs(root: Path) -> list[str]:
-    x_path, p_path = _rl_training_input_paths(root)
-    _rl_download_if_missing(
-        x_path,
-        "RL_X_FEATURES_URL",
-        "X_FEATURES_UNIFIED_URL",
-    )
-    _rl_download_if_missing(
-        p_path,
-        "RL_UNIFIED_TRAINING_URL",
-        "UNIFIED_TRAINING_DATA_URL",
-    )
-    missing: list[str] = []
-    if not x_path.exists():
-        missing.append(x_path.name)
-    if not p_path.exists():
-        missing.append(p_path.name)
-    return missing
-
-
-def _log_rl_dataset_source_status() -> None:
-    root = Path(__file__).resolve().parent
-    x_path, p_path = _rl_training_input_paths(root)
-    x_url = _rl_configured_dataset_url("RL_X_FEATURES_URL", "X_FEATURES_UNIFIED_URL")
-    p_url = _rl_configured_dataset_url("RL_UNIFIED_TRAINING_URL", "UNIFIED_TRAINING_DATA_URL")
-    _rl_missing_training_inputs(root)
-    print(
-        "[RL data] startup | "
-        f"{x_path.name}: {'present' if x_path.exists() else 'missing'} "
-        f"(url={'set' if x_url else 'unset'}) | "
-        f"{p_path.name}: {'present' if p_path.exists() else 'missing'} "
-        f"(url={'set' if p_url else 'unset'})"
-    )
-
-
 def _rl_maybe_run_scheduled_training() -> None:
     """Background scheduler: start a training job when the interval has elapsed."""
     if _rl_auto_train_disabled():
         return
     root = Path(__file__).resolve().parent
-    missing_inputs = _rl_missing_training_inputs(root)
+    missing_inputs = missing_training_inputs(root)
     if missing_inputs:
         print(
             "[RL auto-train] skipped: missing input file(s): "
@@ -1667,8 +1593,8 @@ def _rl_training_job(
     err_summary: str | None = None
     try:
         from rl.train import train_rl_agent
-        x_path, price_path = _rl_training_input_paths(root)
-        missing_inputs = _rl_missing_training_inputs(root)
+        x_path, price_path = training_csv_paths(root)
+        missing_inputs = missing_training_inputs(root)
         if missing_inputs:
             raise FileNotFoundError(
                 "Missing RL input file(s): "
@@ -1737,7 +1663,7 @@ def api_rl_train():
     dueling = bool(data.get("dueling", False))
     prioritized = bool(data.get("prioritized", False))
     root = Path(__file__).resolve().parent
-    missing_inputs = _rl_missing_training_inputs(root)
+    missing_inputs = missing_training_inputs(root)
     if missing_inputs:
         return jsonify(
             {
@@ -2090,7 +2016,7 @@ def _should_start_rl_auto_train_thread() -> bool:
     return True
 
 
-_log_rl_dataset_source_status()
+log_startup_dataset_status(Path(__file__).resolve().parent)
 if _should_start_rl_auto_train_thread():
     _ensure_rl_auto_train_thread()
 elif _railway_env:
