@@ -2307,6 +2307,11 @@ html {
     border-radius: 16px;
     border: 1px solid rgba(255, 215, 0, 0.1);
     margin-bottom: 2rem;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .welcome-section h1 {
@@ -2314,11 +2319,18 @@ html {
     font-weight: 700;
     margin-bottom: 0.5rem;
     color: var(--text-primary);
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.2;
+    hyphens: auto;
 }
 
 .welcome-section p {
     color: var(--text-muted);
     font-size: 1.1rem;
+    max-width: 100%;
+    overflow-wrap: anywhere;
 }
 
 /* Market Stats */
@@ -2895,6 +2907,23 @@ html {
         padding: 1rem;
         padding-top: 80px;
     }
+
+    .welcome-section {
+        padding: 1.25rem 1rem;
+    }
+
+    .welcome-section h1 {
+        font-size: 1.55rem;
+        line-height: 1.25;
+    }
+
+    .welcome-section p {
+        font-size: 1rem;
+    }
+
+    .stat-value {
+        font-size: 1.85rem;
+    }
     
     .section-header {
         flex-direction: column;
@@ -2923,6 +2952,10 @@ html {
 }
 
 @media (max-width: 480px) {
+    .welcome-section h1 {
+        font-size: 1.3rem;
+    }
+
     .market-stats {
         grid-template-columns: 1fr;
     }
