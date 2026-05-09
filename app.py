@@ -244,14 +244,18 @@ def _wait_financialpulse_on_render():
         or path == "/dashboard"
         or path.startswith("/static")
         or path.startswith("/favicon")
+        or path.startswith("/socket.io")
         or path in ("/health", "/health/ready")
         or path.startswith("/login")
     ):
         return None
     if _FP_INTEGRATION_READY.is_set():
         return None
+    # FP static is requested as parallel loads; do not 302 HTML into CSS/JS requests — fall through to quick 404 until mounted.
+    if path.startswith("/financialpulse/static"):
+        return None
     # Do not hold the TCP connection silent for minutes (browser shows endless "Loading…").
-    if path in ("/financialpulse", "/financialpulse/"):
+    if path == "/financialpulse" or path.startswith("/financialpulse/"):
         return redirect(url_for("fp_loading_gate"))
     if not _FP_INTEGRATION_READY.wait(timeout=180):
         abort(503)
