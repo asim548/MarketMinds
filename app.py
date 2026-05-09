@@ -361,10 +361,31 @@ def allowed_file(filename):
 
 # --- INITIALIZATION ---
 data_fetcher = DataFetcher()
-ai_predictor = AIPredictor(model_path='models_unified/')
 trading_api = TradingAPI(data_fetcher)
 pattern_recognizer = None
 _pattern_recognizer_lock = threading.Lock()
+_ai_predictor_lock = threading.Lock()
+
+
+class _LazyAIPredictor:
+    """Delay heavy model loading until first use to keep Render startup fast."""
+
+    def __init__(self, model_path: str):
+        self._model_path = model_path
+        self._instance = None
+
+    def _get(self) -> AIPredictor:
+        if self._instance is None:
+            with _ai_predictor_lock:
+                if self._instance is None:
+                    self._instance = AIPredictor(model_path=self._model_path)
+        return self._instance
+
+    def __getattr__(self, name):
+        return getattr(self._get(), name)
+
+
+ai_predictor = _LazyAIPredictor(model_path='models_unified/')
 
 
 def get_pattern_recognizer():
