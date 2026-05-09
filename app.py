@@ -16,7 +16,9 @@ except OSError:
 if os.environ.get("RENDER"):
     from gevent import monkey
 
-    monkey.patch_all()
+    # Keep native threading for our long-lived background jobs (FP integration/scheduler).
+    # Full thread patching can cause KeyError in threading internals under gevent workers.
+    monkey.patch_all(thread=False)
 
 from flask import (
     Flask,
