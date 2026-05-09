@@ -396,8 +396,14 @@ def api_news():
 
 @app.route("/api/stats")
 def api_stats():
-    news   = get_cached_news() or fetch_all_news(force=True)
+    news = get_cached_news() or fetch_all_news(force=True)
     prices = get_cached_prices()
+    if not prices:
+        try:
+            prices = fetch_prices(force=False)
+        except Exception as e:
+            logger.warning("[Stats] cold-cache prices: %s", e)
+            prices = {}
     total   = len(news)
     bullish = sum(1 for n in news if n["sentiment"]["label"] == "bullish")
     bearish = sum(1 for n in news if n["sentiment"]["label"] == "bearish")

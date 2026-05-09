@@ -1,4 +1,10 @@
 # PyTorch is NOT listed here so solo `pip install -r requirements.txt` pulls CUDA torch from PyPI on Linux.
+#
+# Render Start Command (dashboard OR Blueprint) — use ONE of these exactly (no gevent websocket worker):
+#   bash scripts/render-start.sh
+#   gunicorn --workers 1 --threads 8 --bind 0.0.0.0:$PORT app:app
+# Wrong (missing geventwebsocket / breaks boot): --worker-class geventwebsocket.gunicorn.workers.GeventWebSocketWorker
+#
 # Render Build Command (copy entire line):
 #   pip install --upgrade pip && pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cpu && pip install -r requirements.txt
 # Local: same CPU line, or `pip install torch==2.3.1 torchvision==0.18.1` then `pip install -r requirements.txt`

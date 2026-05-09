@@ -1,0 +1,2 @@
+# Bash must use LF on Linux (Render); CRLF breaks shebang / line endings.
+scripts/*.sh text eol=lf

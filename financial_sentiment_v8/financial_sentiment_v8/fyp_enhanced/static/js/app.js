@@ -64,7 +64,10 @@ function renderPrices(prices) {
   const bar = document.getElementById('price-bar');
   if (!prices || !bar) return;
   const items = Object.values(prices);
-  if (!items.length) return;
+  if (!items.length) {
+    bar.innerHTML = '<div class="price-chip"><span class="sym">···</span><span class="val">Prices</span><span class="chg nt">loading…</span></div>';
+    return;
+  }
 
   // Build chip HTML
   const makeChip = (p) => {
@@ -1051,7 +1054,18 @@ function populateAssetFilters(assets) {
   });
 }
 
+async function loadTickerPrices() {
+  try {
+    const r = await fetch('/api/prices');
+    const d = await r.json();
+    if (d.success && d.prices && Object.keys(d.prices).length) renderPrices(d.prices);
+  } catch (e) {
+    console.warn('[FP] /api/prices:', e);
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
+loadTickerPrices();
 loadDashboard();
 setInterval(loadDashboard, 90000);
 

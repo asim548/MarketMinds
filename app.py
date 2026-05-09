@@ -40,6 +40,7 @@ import plotly.graph_objects as go
 
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, wait
 import shutil
 import urllib.request
 from werkzeug.utils import secure_filename
@@ -85,7 +86,7 @@ except ImportError:
 from utils.data_fetcher import DataFetcher
 from utils.ai_predictor import AIPredictor
 from utils.trading_api import TradingAPI
-from utils.pattern_recognition import PatternRecognizer
+# PatternRecognizer pulls torch/ultralytics — import inside get_pattern_recognizer() for faster Render boots.
 # --- END UTILITY IMPORTS ---
 
 app = Flask(__name__)
@@ -230,33 +231,26 @@ _FP_INTEGRATION_LOCK = threading.Lock()
 
 @app.before_request
 def _wait_financialpulse_on_render():
+    """Render only: gate the FP SPA until cloned routes exist.
+
+    Never block Dashboard, RL, or other MarketMinds pages on FP integration — that caused
+    multi‑minute browser spinners (especially /rl_trading, which was not on the old allow-list).
+
+    FP-only /api/* calls may 404 until integration finishes; the FP entry uses /fp-loading + /api/fp-ready.
+    """
     if not os.environ.get("RENDER"):
         return None
     path = request.path or ""
-    if (
-        path == "/"
-        or path == "/api/auth_status"
-        or path == "/fp-loading"
-        or path == "/api/fp-ready"
-        or path == "/dashboard"
-        or path.startswith("/static")
-        or path.startswith("/favicon")
-        or path.startswith("/socket.io")
-        or path in ("/health", "/health/ready")
-        or path.startswith("/login")
-    ):
-        return None
     if _FP_INTEGRATION_READY.is_set():
         return None
-    # FP static is requested as parallel loads; do not 302 HTML into CSS/JS requests — fall through to quick 404 until mounted.
     if path.startswith("/financialpulse/static"):
         return None
-    # Do not hold the TCP connection silent for minutes (browser shows endless "Loading…").
-    if path == "/financialpulse" or path.startswith("/financialpulse/"):
+    if path == "/financialpulse" or (
+        path.startswith("/financialpulse/")
+        and not path.startswith("/financialpulse/static")
+    ):
         _ensure_fp_integration_started()
         return redirect(url_for("fp_loading_gate"))
-    if not _FP_INTEGRATION_READY.wait(timeout=180):
-        abort(503)
     return None
 
 
@@ -384,6 +378,8 @@ ai_predictor = _LazyAIPredictor(model_path='models_unified/')
 
 def get_pattern_recognizer():
     """Lazy-load pattern model so web server can bind port quickly on Render."""
+    from utils.pattern_recognition import PatternRecognizer
+
     global pattern_recognizer
     if pattern_recognizer is not None:
         return pattern_recognizer
@@ -547,18 +543,67 @@ def logout():
     flash('You have been logged out.', 'info')
     return redirect(url_for('index'))
 
+def _dashboard_fetch_segment(label: str, fn):
+    """Run one dashboard data source; never raises (returns [] on failure)."""
+    try:
+        data = fn()
+        return data if data is not None else []
+    except Exception as e:
+        print(f"[Dashboard] {label}: {e}")
+        return []
+
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    try:
-        crypto_data = data_fetcher.get_crypto_data()
-        stocks_data = data_fetcher.get_stocks_data()
-        forex_data = data_fetcher.get_forex_data()
-    except Exception as e:
-        print(f"Error fetching market data for dashboard: {e}")
-        crypto_data = []
-        stocks_data = []
-        forex_data = []
+    crypto_data, stocks_data, forex_data = [], [], []
+    parallel = os.environ.get("MM_DASHBOARD_PARALLEL", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+    )
+    timeout_s = float(os.environ.get("MM_DASHBOARD_FETCH_TIMEOUT", "45"))
+
+    if parallel:
+        try:
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                f_c = pool.submit(_dashboard_fetch_segment, "crypto", data_fetcher.get_crypto_data)
+                f_s = pool.submit(_dashboard_fetch_segment, "stocks", data_fetcher.get_stocks_data)
+                f_f = pool.submit(_dashboard_fetch_segment, "forex", data_fetcher.get_forex_data)
+                pending = {f_c, f_s, f_f}
+                done, not_done = wait(pending, timeout=timeout_s)
+                if not_done:
+                    print(
+                        f"[Dashboard] {len(not_done)} feed(s) still loading after {timeout_s}s "
+                        "(partial dashboard)"
+                    )
+                for fut in not_done:
+                    fut.cancel()
+
+                def _result(fut):
+                    if fut not in done:
+                        return []
+                    try:
+                        return fut.result(timeout=0) or []
+                    except Exception as e:
+                        print(f"[Dashboard] result error: {e}")
+                        return []
+
+                crypto_data = _result(f_c)
+                stocks_data = _result(f_s)
+                forex_data = _result(f_f)
+        except Exception as e:
+            print(f"Error fetching market data for dashboard: {e}")
+    else:
+        try:
+            crypto_data = data_fetcher.get_crypto_data()
+            stocks_data = data_fetcher.get_stocks_data()
+            forex_data = data_fetcher.get_forex_data()
+        except Exception as e:
+            print(f"Error fetching market data for dashboard: {e}")
+            crypto_data = []
+            stocks_data = []
+            forex_data = []
 
     def _to_float(value, default=0.0):
         try:
@@ -1410,14 +1455,53 @@ def rl_trading():
         agent, scaler = load_agent_and_scaler()
 
     full_symbols = ai_predictor.full_symbol_list
+    stocks_data, crypto_data, forex_data, commodity_data = [], [], [], []
+    rl_fetch_timeout = float(os.environ.get("MM_RL_MARKET_FETCH_TIMEOUT", "60"))
     try:
-        stocks_data = data_fetcher.get_stocks_data(full_symbols["Stocks"])
-        crypto_data = data_fetcher.get_crypto_data(full_symbols["Crypto"])
-        forex_data = data_fetcher.get_forex_data(full_symbols["Forex"])
-        commodity_data = data_fetcher.get_commodity_data(full_symbols["Commodities"])
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            f_st = pool.submit(
+                _dashboard_fetch_segment,
+                "rl-stocks",
+                lambda: data_fetcher.get_stocks_data(full_symbols["Stocks"]),
+            )
+            f_cr = pool.submit(
+                _dashboard_fetch_segment,
+                "rl-crypto",
+                lambda: data_fetcher.get_crypto_data(full_symbols["Crypto"]),
+            )
+            f_fx = pool.submit(
+                _dashboard_fetch_segment,
+                "rl-forex",
+                lambda: data_fetcher.get_forex_data(full_symbols["Forex"]),
+            )
+            f_cm = pool.submit(
+                _dashboard_fetch_segment,
+                "rl-commodity",
+                lambda: data_fetcher.get_commodity_data(full_symbols["Commodities"]),
+            )
+            pending = {f_st, f_cr, f_fx, f_cm}
+            done, not_done = wait(pending, timeout=rl_fetch_timeout)
+            if not_done:
+                print(
+                    f"[RL page] {len(not_done)} market feed(s) unfinished after {rl_fetch_timeout}s "
+                    "(partial RL context)"
+                )
+
+            def _grab(fut):
+                if fut not in done:
+                    return []
+                try:
+                    return fut.result(timeout=0) or []
+                except Exception as ex:
+                    print(f"[RL page] feed result: {ex}")
+                    return []
+
+            stocks_data = _grab(f_st)
+            crypto_data = _grab(f_cr)
+            forex_data = _grab(f_fx)
+            commodity_data = _grab(f_cm)
     except Exception as e:
         print(f"RL page: error fetching market data: {e}")
-        stocks_data, crypto_data, forex_data, commodity_data = [], [], [], []
 
     all_data = []
     for d in stocks_data + crypto_data + forex_data + commodity_data:

@@ -106,6 +106,24 @@ python app.py
 - Use a production process manager and configure persistent storage for DB/model state.
 - Confirm WebSocket compatibility in the target runtime for FinancialPulse updates.
 
+### Render.com (Web service)
+
+In the Render dashboard, set **Start Command** to match the repo (do not use `GeventWebSocketWorker` unless you add `gevent-websocket` yourself):
+
+```bash
+bash scripts/render-start.sh
+```
+
+Equivalent one-liner:
+
+```bash
+gunicorn --workers 1 --threads 8 --bind 0.0.0.0:$PORT app:app
+```
+
+Socket.IO runs in **threading** mode on Render by default (`SOCKETIO_ASYNC_MODE` optional). Using `--worker-class geventwebsocket...` without installing `gevent-websocket` produces `ModuleNotFoundError: No module named 'geventwebsocket'`.
+
+**502 Bad Gateway** usually means the web process never listened on `$PORT` or crashed at boot. Check **Logs** for tracebacks (database URL / `create_all`, import errors, OOM). Confirm **Root Directory** points at the folder that contains `app.py`. Probe **`/health`** (must return `{"ok":true}`). Postgres on Render often needs `sslmode=require` in the URL.
+
 ## Repository
 
 GitHub: [asim548/MarketMinds](https://github.com/asim548/MarketMinds.git)

@@ -100,8 +100,12 @@ class DatabaseConfig:
 
         db.init_app(app)
         with app.app_context():
-            db.create_all()
-            cls._ensure_sqlite_google_sub_column()
+            try:
+                db.create_all()
+                cls._ensure_sqlite_google_sub_column()
+            except Exception as e:
+                print(f"[DB] FATAL: init/create_all failed — fix DATABASE_URL or Postgres connectivity: {e}")
+                raise
         print(f"[OK] Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
 
     @staticmethod
