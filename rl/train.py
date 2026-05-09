@@ -201,14 +201,16 @@ def train_rl_agent(
     versioned_scaler = out / f"rl_scaler_{ts}.pkl"
     agent.save(str(versioned_weights))
     shutil.copy2(out / "rl_scaler.pkl", versioned_scaler)
+    publish_latest_aliases(versioned_weights, versioned_scaler, base=out)
+    # Repo / deploy ship rl_agent.pth + rl_scaler.pkl — meta must reference those, not gitignored snapshots.
     write_current_agent_meta(
-        versioned_weights.name,
-        versioned_scaler.name,
+        "rl_agent.pth",
+        "rl_scaler.pkl",
         dueling=bool(getattr(agent, "_dueling", False)),
         prioritized=prioritized and agent._sk is None,
         base=out,
+        version_label=ts,
     )
-    publish_latest_aliases(versioned_weights, versioned_scaler, base=out)
 
     # --- validation (greedy) ---
     agent.epsilon = 0.0

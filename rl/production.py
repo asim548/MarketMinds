@@ -186,10 +186,16 @@ def write_current_agent_meta(
     dueling: bool = False,
     prioritized: bool = False,
     base: Path | None = None,
+    version_label: str | None = None,
 ) -> None:
     root = models_dir(base)
     root.mkdir(parents=True, exist_ok=True)
-    ver = weights_name.replace("rl_agent_", "").replace(".pth", "")
+    if version_label is not None:
+        ver = version_label
+    elif weights_name == "rl_agent.pth":
+        ver = "canonical"
+    else:
+        ver = weights_name.replace("rl_agent_", "").replace(".pth", "")
     meta = {
         "weights": weights_name,
         "scaler": scaler_name,

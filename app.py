@@ -143,8 +143,14 @@ def _feature_readiness_snapshot() -> dict:
         "missing_files": missing_rl_inputs,
     }
 
+    strict_ok = all(c.get("ok", False) for c in checks.values())
+    # OAuth, optional RL CSVs, and lazy FP import should not fail readiness probes by default.
+    relaxed_ok = bool(checks["database"]["ok"])
+    use_strict = os.environ.get("MM_HEALTH_READY_STRICT", "").strip().lower() in ("1", "true", "yes")
     return {
-        "ok": all(c.get("ok", False) for c in checks.values()),
+        "ok": strict_ok if use_strict else relaxed_ok,
+        "strict_checks_ok": strict_ok,
+        "health_ready_strict_env": use_strict,
         "checks": checks,
     }
 
@@ -153,7 +159,8 @@ def _feature_readiness_snapshot() -> dict:
 def health_ready():
     """
     Readiness endpoint for production debugging.
-    Returns 200 only when core features are configured and reachable.
+    Returns 200 when the primary DB is reachable (default). Set MM_HEALTH_READY_STRICT=1 to require
+    OAuth, FinancialPulse import, and RL training CSVs as well.
     """
     snap = _feature_readiness_snapshot()
     return jsonify(snap), (200 if snap["ok"] else 503)
@@ -1925,7 +1932,7 @@ def _integrate_financialpulse(app: Flask, socketio: SocketIO) -> None:
     # not through fp's own isolated SocketIO instance which has no server.
     try:
         fp.socketio = socketio
-        print("[FinancialPulse] socketio re-bound to MarketMinds socketio ✓")
+        print("[FinancialPulse] socketio re-bound to MarketMinds socketio [ok]")
     except Exception as e:
         print(f"[FinancialPulse] socketio rebind warning: {e}")
 
@@ -2018,7 +2025,7 @@ def _integrate_financialpulse(app: Flask, socketio: SocketIO) -> None:
             threading.Thread(target=fp._full_refresh, daemon=True).start()
             emit('refresh_started', {'message': 'Refreshing...'})
 
-        print("[FinancialPulse] Socket.IO event handlers registered ✓")
+        print("[FinancialPulse] Socket.IO event handlers registered [ok]")
     except Exception as e:
         print(f"[FinancialPulse] Socket.IO handlers warning: {e}")
 
@@ -2067,12 +2074,29 @@ else:
     )
 
 _railway_env = bool(os.environ.get("RAILWAY_ENVIRONMENT", "").strip())
+_render_env = bool(os.environ.get("RENDER", "").strip())
 _rl_on_railway = os.environ.get("RL_AUTO_TRAIN_ON_RAILWAY", "").strip().lower() in ("1", "true", "yes")
+_rl_on_render = os.environ.get("RL_AUTO_TRAIN_ON_RENDER", "").strip().lower() in ("1", "true", "yes")
+
+
+def _should_start_rl_auto_train_thread() -> bool:
+    """Avoid background training competing with FP bootstrap on managed hosts unless explicitly enabled."""
+    if _rl_auto_train_disabled():
+        return False
+    if _railway_env and not _rl_on_railway:
+        return False
+    if _render_env and not _rl_on_render:
+        return False
+    return True
+
+
 _log_rl_dataset_source_status()
-if not _railway_env or _rl_on_railway:
+if _should_start_rl_auto_train_thread():
     _ensure_rl_auto_train_thread()
-else:
+elif _railway_env:
     print("[RL auto-train] Skipped on Railway boot (set RL_AUTO_TRAIN_ON_RAILWAY=1 to enable).")
+elif _render_env:
+    print("[RL auto-train] Skipped on Render boot (set RL_AUTO_TRAIN_ON_RENDER=1 to enable).")
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

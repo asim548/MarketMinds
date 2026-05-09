@@ -5016,12 +5016,12 @@
   "equity_curve_png": "rl_equity_curve.png",
   "n_train_rows": 20000,
   "n_val_rows": 5000,
-  "metrics_generated_at_utc": "2026-05-09T15:12:57+00:00",
+  "metrics_generated_at_utc": "2026-05-09T15:27:19+00:00",
   "train_episodes_completed": 4,
   "epsilon": 0.0,
   "checkpoint": {
-    "weights": "rl_agent_20260509_151250.pth",
-    "scaler": "rl_scaler_20260509_151250.pkl",
+    "weights": "rl_agent_20260509_152710.pth",
+    "scaler": "rl_scaler_20260509_152710.pkl",
     "dueling": false,
     "prioritized_training": false
   }

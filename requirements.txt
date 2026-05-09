@@ -1,5 +1,9 @@
 # PyTorch is NOT listed here so solo `pip install -r requirements.txt` pulls CUDA torch from PyPI on Linux.
 #
+# Render: background RL auto-training is off unless RL_AUTO_TRAIN_ON_RENDER=1 (keeps FP cold starts smooth).
+# Railway: same via RL_AUTO_TRAIN_ON_RAILWAY=1.
+# Readiness: /health/ready uses DB-only unless MM_HEALTH_READY_STRICT=1.
+#
 # Render Start Command (dashboard OR Blueprint) — use ONE of these exactly (no gevent websocket worker):
 #   bash scripts/render-start.sh
 #   gunicorn --workers 1 --threads 8 --bind 0.0.0.0:$PORT app:app
