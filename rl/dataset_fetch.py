@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 
@@ -67,10 +68,30 @@ def download_if_missing(target_path: Path, *env_keys: str) -> bool:
 
 
 def missing_training_inputs(app_root: Path | None = None) -> list[str]:
-    """Try URL downloads, then return basenames still missing."""
+    """Try URL downloads (parallel when both needed), then return basenames still missing."""
     x_path, p_path = training_csv_paths(app_root)
-    download_if_missing(x_path, "RL_X_FEATURES_URL", "X_FEATURES_UNIFIED_URL")
-    download_if_missing(p_path, "RL_UNIFIED_TRAINING_URL", "UNIFIED_TRAINING_DATA_URL")
+    futures = []
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        if not x_path.exists():
+            futures.append(
+                pool.submit(
+                    download_if_missing,
+                    x_path,
+                    "RL_X_FEATURES_URL",
+                    "X_FEATURES_UNIFIED_URL",
+                )
+            )
+        if not p_path.exists():
+            futures.append(
+                pool.submit(
+                    download_if_missing,
+                    p_path,
+                    "RL_UNIFIED_TRAINING_URL",
+                    "UNIFIED_TRAINING_DATA_URL",
+                )
+            )
+        for fut in as_completed(futures):
+            fut.result()
     missing: list[str] = []
     if not x_path.exists():
         missing.append(x_path.name)
