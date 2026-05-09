@@ -1,8 +1,8 @@
 {
-  "weights": "rl_agent.pth",
-  "scaler": "rl_scaler.pkl",
-  "saved_at_utc": "2026-05-09T14:48:58.332659+00:00",
+  "weights": "rl_agent_20260509_151250.pth",
+  "scaler": "rl_scaler_20260509_151250.pkl",
+  "saved_at_utc": "2026-05-09T15:12:50.853307+00:00",
   "dueling": false,
   "prioritized_training": false,
-  "version": "canonical"
+  "version": "20260509_151250"
 }
