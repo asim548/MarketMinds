@@ -1,13 +1,43 @@
 // Main JavaScript for MarketMinds
 document.addEventListener('DOMContentLoaded', function() {
-    // Mobile Navigation Toggle
+    // Mobile Navigation Toggle (single listener — base.html must not duplicate this)
     const navToggle = document.querySelector('.nav-toggle');
     const navMenu = document.querySelector('.nav-menu');
-    
-    if (navToggle) {
-        navToggle.addEventListener('click', function() {
+
+    function closeMobileNav() {
+        if (!navMenu || !navToggle) return;
+        navMenu.classList.remove('active');
+        navToggle.classList.remove('active');
+        navToggle.setAttribute('aria-expanded', 'false');
+    }
+
+    if (navToggle && navMenu) {
+        function syncNavAria() {
+            navToggle.setAttribute('aria-expanded', navMenu.classList.contains('active') ? 'true' : 'false');
+        }
+        navToggle.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
             navMenu.classList.toggle('active');
             navToggle.classList.toggle('active');
+            syncNavAria();
+        });
+        navToggle.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navMenu.classList.toggle('active');
+                navToggle.classList.toggle('active');
+                syncNavAria();
+            }
+        });
+        document.querySelectorAll('.nav-menu .nav-link, .nav-menu .nav-user').forEach(function (el) {
+            el.addEventListener('click', closeMobileNav);
+        });
+        document.addEventListener('click', function (e) {
+            if (!navMenu.classList.contains('active')) return;
+            if (navToggle.contains(e.target)) return;
+            if (navMenu.contains(e.target)) return;
+            closeMobileNav();
         });
     }
 

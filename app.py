@@ -115,7 +115,7 @@ def _feature_readiness_snapshot() -> dict:
         db_error = str(e)
     checks["database"] = {
         "ok": db_ok,
-        "uri": app.config.get("SQLALCHEMY_DATABASE_URI"),
+        "uri": DatabaseConfig.redact_database_uri(app.config.get("SQLALCHEMY_DATABASE_URI")),
         "error": db_error,
     }
 

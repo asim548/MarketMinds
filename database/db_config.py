@@ -20,6 +20,25 @@ class DatabaseConfig:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     @staticmethod
+    def redact_database_uri(uri: str | None) -> str | None:
+        """Mask password in postgres URLs for logs and JSON (never print credentials)."""
+        if not uri or not isinstance(uri, str):
+            return uri
+        try:
+            parts = urlsplit(uri)
+            if "@" not in parts.netloc:
+                return uri
+            auth, host = parts.netloc.rsplit("@", 1)
+            if ":" in auth:
+                user, _pwd = auth.split(":", 1)
+                netloc = f"{user}:***@{host}"
+            else:
+                netloc = f"{auth}@{host}"
+            return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+        except Exception:
+            return "[database-uri-redacted]"
+
+    @staticmethod
     def _sqlite_url() -> str:
         return f"sqlite:///{DatabaseConfig.DEFAULT_DB_PATH}"
 
@@ -106,7 +125,7 @@ class DatabaseConfig:
             except Exception as e:
                 print(f"[DB] FATAL: init/create_all failed — fix DATABASE_URL or Postgres connectivity: {e}")
                 raise
-        print(f"[OK] Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
+        print(f"[OK] Database URI: {cls.redact_database_uri(app.config['SQLALCHEMY_DATABASE_URI'])}")
 
     @staticmethod
     def _ensure_sqlite_google_sub_column() -> None:

@@ -95,7 +95,7 @@
                     {% endif %}
                 </div>
             </div>
-            <div class="nav-toggle">
+            <div class="nav-toggle" role="button" tabindex="0" aria-label="Menu" aria-expanded="false">
                 <span></span>
                 <span></span>
                 <span></span>
@@ -190,25 +190,7 @@
     </footer>
 
     {% block scripts %}{% endblock %}
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const navToggle = document.querySelector('.nav-toggle');
-        const navMenu = document.querySelector('.nav-menu');
-
-        navToggle.addEventListener('click', () => {
-            navToggle.classList.toggle('active');
-            navMenu.classList.toggle('active');
-        });
-
-        // Close menu on link click (mobile)
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', () => {
-                navToggle.classList.remove('active');
-                navMenu.classList.remove('active');
-            });
-        });
-    });
-    </script>
+    {# Mobile nav toggle lives only in static/js/main.js — duplicate listeners here toggled twice per tap (menu stuck closed). #}
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=mm20260509nav"></script>
 </body>
 </html>
