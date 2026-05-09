@@ -11,14 +11,8 @@ try:
 except OSError:
     pass
 
-# Render (and other hosts using Socket.IO over WebSockets): Werkzeug cannot upgrade
-# WebSocket connections — use gevent in production.
-if os.environ.get("RENDER"):
-    from gevent import monkey
-
-    # Keep native threading for our long-lived background jobs (FP integration/scheduler).
-    # Full thread patching can cause KeyError in threading internals under gevent workers.
-    monkey.patch_all(thread=False)
+# Keep startup deterministic on Render: avoid gevent monkey patching.
+# We run Socket.IO in threading mode with gunicorn threaded workers.
 
 from flask import (
     Flask,
@@ -211,9 +205,9 @@ def _socketio_async_mode() -> str:
     explicit = (os.environ.get("SOCKETIO_ASYNC_MODE") or "").strip().lower()
     if explicit in ("threading", "eventlet", "gevent"):
         return explicit
-    # Match Procfile / production: gunicorn gevent websocket worker.
+    # Stability-first default for Render (lowest startup risk).
     if os.environ.get("RENDER"):
-        return "gevent"
+        return "threading"
     return "threading"
 
 
