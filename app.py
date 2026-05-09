@@ -230,6 +230,8 @@ socketio = SocketIO(
 # Render: defer FP wiring so $PORT binds first. Event becomes set once FP HTTP/UI + /api/* clone exist — before Socket.IO
 # handlers finish (those can stall under eventlet; fp-loading polls this flag).
 _FP_INTEGRATION_READY = threading.Event()
+_FP_INTEGRATION_STARTED = False
+_FP_INTEGRATION_LOCK = threading.Lock()
 
 
 @app.before_request
@@ -257,6 +259,7 @@ def _wait_financialpulse_on_render():
         return None
     # Do not hold the TCP connection silent for minutes (browser shows endless "Loading…").
     if path == "/financialpulse" or path.startswith("/financialpulse/"):
+        _ensure_fp_integration_started()
         return redirect(url_for("fp_loading_gate"))
     if not _FP_INTEGRATION_READY.wait(timeout=180):
         abort(503)
@@ -333,6 +336,7 @@ setTimeout(tick,1100);}tick();
 @app.route("/fp-loading")
 @login_required
 def fp_loading_gate():
+    _ensure_fp_integration_started()
     if _FP_INTEGRATION_READY.is_set():
         return redirect("/financialpulse")
     return render_template_string(_FP_LOADING_HTML)
@@ -397,10 +401,8 @@ def inject_user():
 def index():
     if not current_user.is_authenticated:
         return redirect(url_for('login'))
-    # On Render, FP integration is deferred — send users to a fast polling page instead of a multi‑minute hung navigation.
-    if os.environ.get("RENDER"):
-        return redirect(url_for("fp_loading_gate"))
-    return redirect('/financialpulse')
+    # Keep post-login path fast; FinancialPulse can be opened on demand from dashboard/nav.
+    return redirect(url_for("dashboard"))
 
 @app.route('/api/auth_status')
 def auth_status():
@@ -1900,7 +1902,8 @@ def _should_integrate_financialpulse_on_boot() -> bool:
         (os.environ.get(k) or "").strip()
         for k in ("RAILWAY_ENVIRONMENT", "RAILWAY_PROJECT_ID", "RAILWAY_SERVICE_ID")
     )
-    return force_enable or not is_railway
+    is_render = bool((os.environ.get("RENDER") or "").strip())
+    return force_enable or (not is_railway and not is_render)
 
 
 def _run_financialpulse_integration() -> None:
@@ -1912,29 +1915,25 @@ def _run_financialpulse_integration() -> None:
         _FP_INTEGRATION_READY.set()
 
 
+def _ensure_fp_integration_started() -> None:
+    global _FP_INTEGRATION_STARTED
+    if _FP_INTEGRATION_READY.is_set():
+        return
+    with _FP_INTEGRATION_LOCK:
+        if _FP_INTEGRATION_STARTED:
+            return
+        _FP_INTEGRATION_STARTED = True
+        threading.Thread(target=_run_financialpulse_integration, daemon=True, name="fp-integrate").start()
+
+
 if _should_integrate_financialpulse_on_boot():
-    if os.environ.get("RENDER"):
-        print("[FinancialPulse] Deferred integration on Render — binding HTTP port before heavy imports.")
-        threading.Thread(target=_run_financialpulse_integration, daemon=True, name="fp-integrate-render").start()
-    else:
-        _run_financialpulse_integration()
+    _run_financialpulse_integration()
 else:
     print(
-        "[FinancialPulse] Skipped during boot on Railway to improve startup healthcheck reliability. "
-        "Set MM_ENABLE_FINANCIALPULSE_ON_BOOT=1 to enable boot-time integration."
+        "[FinancialPulse] Boot integration disabled on this platform for low-latency startup; "
+        "lazy-loading on first /financialpulse request. Set MM_ENABLE_FINANCIALPULSE_ON_BOOT=1 "
+        "to force boot-time integration."
     )
-
-    @app.route("/financialpulse")
-    @login_required
-    def financialpulse_boot_deferred():
-        flash(
-            "FinancialPulse boot-time integration is disabled on this deployment. "
-            "Set MM_ENABLE_FINANCIALPULSE_ON_BOOT=1 to enable it.",
-            "info",
-        )
-        return redirect(url_for("dashboard"))
-
-    _FP_INTEGRATION_READY.set()
 
 _railway_env = bool(os.environ.get("RAILWAY_ENVIRONMENT", "").strip())
 _rl_on_railway = os.environ.get("RL_AUTO_TRAIN_ON_RAILWAY", "").strip().lower() in ("1", "true", "yes")
