@@ -29,6 +29,7 @@ from flask import (
     make_response,
     redirect,
     render_template,
+    render_template_string,
     request,
     send_from_directory,
     session,
@@ -238,6 +239,9 @@ def _wait_financialpulse_on_render():
     if (
         path == "/"
         or path == "/api/auth_status"
+        or path == "/fp-loading"
+        or path == "/api/fp-ready"
+        or path == "/dashboard"
         or path.startswith("/static")
         or path.startswith("/favicon")
         or path in ("/health", "/health/ready")
@@ -246,6 +250,9 @@ def _wait_financialpulse_on_render():
         return None
     if _FP_INTEGRATION_READY.is_set():
         return None
+    # Do not hold the TCP connection silent for minutes (browser shows endless "Loading…").
+    if path in ("/financialpulse", "/financialpulse/"):
+        return redirect(url_for("fp_loading_gate"))
     if not _FP_INTEGRATION_READY.wait(timeout=180):
         abort(503)
     return None
@@ -300,6 +307,37 @@ login_manager.login_message_category = 'info'
 def load_user(user_id):
     return UserService.get_user_by_id(user_id)
 
+
+_FP_LOADING_HTML = """<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>MarketMinds — starting…</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#0f1115;color:#e8eaef;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;}
+.box{text-align:center;max-width:26rem;padding:1.75rem;}h1{font-size:1.15rem;font-weight:600;}p{opacity:.85;font-size:.95rem;line-height:1.45;}
+</style></head><body><div class="box"><h1>Starting FinancialPulse…</h1>
+<p>Models and routes load in the background after deploy or cold start. This page refreshes automatically.</p>
+<p id="s">Checking readiness…</p></div>
+<script>
+async function tick(){try{const r=await fetch('/api/fp-ready');const j=await r.json();
+if(j.ok){location.replace('/financialpulse');return;}
+document.getElementById('s').textContent='Still loading…';}catch(e){document.getElementById('s').textContent='Retrying…';}
+setTimeout(tick,1100);}tick();
+</script></body></html>"""
+
+
+@app.route("/fp-loading")
+@login_required
+def fp_loading_gate():
+    if _FP_INTEGRATION_READY.is_set():
+        return redirect("/financialpulse")
+    return render_template_string(_FP_LOADING_HTML)
+
+
+@app.route("/api/fp-ready")
+def fp_ready_json():
+    return jsonify(ok=_FP_INTEGRATION_READY.is_set())
+
+
 # Chart AI Configuration
 app.config['UPLOAD_FOLDER'] = 'static/uploads/charts'
 app.config['PROFILE_UPLOAD_FOLDER'] = 'static/uploads/profiles'
@@ -352,6 +390,9 @@ def inject_user():
 def index():
     if not current_user.is_authenticated:
         return redirect(url_for('login'))
+    # On Render, FP integration is deferred — send users to a fast polling page instead of a multi‑minute hung navigation.
+    if os.environ.get("RENDER"):
+        return redirect(url_for("fp_loading_gate"))
     return redirect('/financialpulse')
 
 @app.route('/api/auth_status')
