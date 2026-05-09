@@ -553,6 +553,63 @@ def _dashboard_fetch_segment(label: str, fn):
         return []
 
 
+def _rl_parallel_market_snapshot(full_symbols: dict) -> list:
+    """Parallel CoinGecko/yfinance snapshot for RL — does not touch lazy ai_predictor."""
+    stocks_data, crypto_data, forex_data, commodity_data = [], [], [], []
+    rl_fetch_timeout = float(os.environ.get("MM_RL_MARKET_FETCH_TIMEOUT", "60"))
+    try:
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            f_st = pool.submit(
+                _dashboard_fetch_segment,
+                "rl-stocks",
+                lambda: data_fetcher.get_stocks_data(full_symbols["Stocks"]),
+            )
+            f_cr = pool.submit(
+                _dashboard_fetch_segment,
+                "rl-crypto",
+                lambda: data_fetcher.get_crypto_data(full_symbols["Crypto"]),
+            )
+            f_fx = pool.submit(
+                _dashboard_fetch_segment,
+                "rl-forex",
+                lambda: data_fetcher.get_forex_data(full_symbols["Forex"]),
+            )
+            f_cm = pool.submit(
+                _dashboard_fetch_segment,
+                "rl-commodity",
+                lambda: data_fetcher.get_commodity_data(full_symbols["Commodities"]),
+            )
+            pending = {f_st, f_cr, f_fx, f_cm}
+            done, not_done = wait(pending, timeout=rl_fetch_timeout)
+            if not_done:
+                print(
+                    f"[RL market] {len(not_done)} feed(s) unfinished after {rl_fetch_timeout}s "
+                    "(partial snapshot)"
+                )
+
+            def _grab(fut):
+                if fut not in done:
+                    return []
+                try:
+                    return fut.result(timeout=0) or []
+                except Exception as ex:
+                    print(f"[RL market] feed result: {ex}")
+                    return []
+
+            stocks_data = _grab(f_st)
+            crypto_data = _grab(f_cr)
+            forex_data = _grab(f_fx)
+            commodity_data = _grab(f_cm)
+    except Exception as e:
+        print(f"[RL market] snapshot error: {e}")
+
+    rows = []
+    for d in stocks_data + crypto_data + forex_data + commodity_data:
+        if d.get("price") not in (None, 0) and d.get("symbol") and d.get("category"):
+            rows.append(d)
+    return rows
+
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -1414,17 +1471,11 @@ def _rl_sync_training_flag() -> None:
 @app.route("/rl_agent")
 @login_required
 def rl_trading():
+    """Fast shell only — RL inference runs via GET /api/rl/dashboard_signals (avoids Render 502/timeouts)."""
     with _RL_TRAIN_LOCK:
         _rl_sync_training_flag()
-    from rl.inference import (
-        apply_circuit_buy_halt,
-        compute_rl_signals,
-        load_agent_and_scaler,
-        read_current_agent_meta,
-        read_metrics_json,
-        rl_paths,
-    )
-    from rl.production import circuit_halt_buy, load_circuit_state, refresh_circuit_from_paper_trades, resolve_checkpoint_paths
+    from rl.inference import read_current_agent_meta, read_metrics_json, rl_paths
+    from rl.production import load_circuit_state, refresh_circuit_from_paper_trades, resolve_checkpoint_paths
     from rl.reinforcement_digest import read_reinforcement_digest, refresh_reinforcement_digest
 
     _ensure_rl_auto_train_thread()
@@ -1450,79 +1501,13 @@ def rl_trading():
         )
     rl_auto_train = _rl_auto_train_status(root)
 
-    agent, scaler = (None, None)
-    if trained:
-        agent, scaler = load_agent_and_scaler()
-
-    full_symbols = ai_predictor.full_symbol_list
-    stocks_data, crypto_data, forex_data, commodity_data = [], [], [], []
-    rl_fetch_timeout = float(os.environ.get("MM_RL_MARKET_FETCH_TIMEOUT", "60"))
-    try:
-        with ThreadPoolExecutor(max_workers=4) as pool:
-            f_st = pool.submit(
-                _dashboard_fetch_segment,
-                "rl-stocks",
-                lambda: data_fetcher.get_stocks_data(full_symbols["Stocks"]),
-            )
-            f_cr = pool.submit(
-                _dashboard_fetch_segment,
-                "rl-crypto",
-                lambda: data_fetcher.get_crypto_data(full_symbols["Crypto"]),
-            )
-            f_fx = pool.submit(
-                _dashboard_fetch_segment,
-                "rl-forex",
-                lambda: data_fetcher.get_forex_data(full_symbols["Forex"]),
-            )
-            f_cm = pool.submit(
-                _dashboard_fetch_segment,
-                "rl-commodity",
-                lambda: data_fetcher.get_commodity_data(full_symbols["Commodities"]),
-            )
-            pending = {f_st, f_cr, f_fx, f_cm}
-            done, not_done = wait(pending, timeout=rl_fetch_timeout)
-            if not_done:
-                print(
-                    f"[RL page] {len(not_done)} market feed(s) unfinished after {rl_fetch_timeout}s "
-                    "(partial RL context)"
-                )
-
-            def _grab(fut):
-                if fut not in done:
-                    return []
-                try:
-                    return fut.result(timeout=0) or []
-                except Exception as ex:
-                    print(f"[RL page] feed result: {ex}")
-                    return []
-
-            stocks_data = _grab(f_st)
-            crypto_data = _grab(f_cr)
-            forex_data = _grab(f_fx)
-            commodity_data = _grab(f_cm)
-    except Exception as e:
-        print(f"RL page: error fetching market data: {e}")
-
-    all_data = []
-    for d in stocks_data + crypto_data + forex_data + commodity_data:
-        if d.get("price") is not None and d.get("price") != 0 and d.get("symbol") and d.get("category"):
-            all_data.append(d)
-
-    rl_signals = []
-    if agent is not None and scaler is not None and all_data and ai_predictor.feature_cols:
-        try:
-            rl_signals = compute_rl_signals(ai_predictor, all_data, LIVE_ECONOMIC_EVENT, agent, scaler)
-            rl_signals, _ = apply_circuit_buy_halt(rl_signals, circuit_halt_buy(root))
-        except Exception as e:
-            print(f"RL inference error: {e}")
-
     html = render_template(
         "rl_trading.html",
         username=current_user.username,
         trained=trained,
         val_metrics=val_metrics,
         epsilon_meta=epsilon_meta,
-        rl_signals=rl_signals,
+        rl_signals=[],
         checkpoint_meta=checkpoint_meta,
         circuit_state=circuit_state,
         last_updated=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -1537,6 +1522,53 @@ def rl_trading():
     out.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     out.headers["Pragma"] = "no-cache"
     return out
+
+
+@app.route("/api/rl/dashboard_signals", methods=["GET"])
+@login_required
+def api_rl_dashboard_signals():
+    """Heavy path: lazy-load hybrid predictor + DQN inference — keep off the HTML GET."""
+    from utils.ai_predictor import PREDICTION_SYMBOLS
+
+    from rl.inference import apply_circuit_buy_halt, compute_rl_signals, load_agent_and_scaler, rl_paths
+    from rl.production import circuit_halt_buy, refresh_circuit_from_paper_trades, resolve_checkpoint_paths
+
+    root = rl_paths()["models_dir"]
+    refresh_circuit_from_paper_trades(root)
+    if resolve_checkpoint_paths(root)[0] is None:
+        return jsonify({"success": True, "trained": False, "signals": []})
+
+    agent, scaler = load_agent_and_scaler()
+    if agent is None or scaler is None:
+        return jsonify({"success": True, "trained": False, "signals": [], "error": "checkpoint_missing"})
+
+    all_data = _rl_parallel_market_snapshot(PREDICTION_SYMBOLS)
+    if not all_data:
+        return jsonify({"success": True, "trained": True, "signals": [], "error": "no_market_data"})
+
+    feat_cols = getattr(ai_predictor, "feature_cols", None)
+    if not feat_cols:
+        return jsonify({"success": False, "trained": True, "signals": [], "error": "predictor_not_ready"}), 503
+
+    try:
+        rl_signals = compute_rl_signals(ai_predictor, all_data, LIVE_ECONOMIC_EVENT, agent, scaler)
+        rl_signals, _ = apply_circuit_buy_halt(rl_signals, circuit_halt_buy(root))
+        slim = []
+        for s in rl_signals:
+            slim.append(
+                {
+                    "symbol": s.get("symbol"),
+                    "name": s.get("name"),
+                    "category": s.get("category"),
+                    "price": s.get("price"),
+                    "action": s.get("action"),
+                    "confidence": s.get("confidence"),
+                }
+            )
+        return jsonify({"success": True, "trained": True, "signals": slim})
+    except Exception as e:
+        print(f"[api_rl_dashboard_signals] {e}")
+        return jsonify({"success": False, "trained": True, "signals": [], "error": str(e)}), 500
 
 
 def _rl_metrics_for_api(raw: dict | None) -> dict | None:

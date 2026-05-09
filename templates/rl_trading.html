@@ -160,49 +160,22 @@
         </div>
         {% endif %}
 
-        {% if rl_signals %}
-        <div class="signal-section stocks-section" style="margin-top:2rem;">
+        {% if trained %}
+        <div class="signal-section stocks-section" style="margin-top:2rem;" id="rlSignalsAsyncRoot">
             <div class="section-header">
                 <h2 class="stocks-title"><i class="fas fa-bolt"></i> Suggested actions</h2>
-                <p>From your latest model and live snapshot.</p>
+                <p>Loaded after the page opens so the dashboard stays fast on small hosts.</p>
             </div>
-            <div class="signal-grid">
-                {% for s in rl_signals %}
-                {% set is_buy = s.action == 'BUY' %}
-                {% set is_hold = s.action == 'HOLD' %}
-                {% set signal_class = 'buy-color' if is_buy else 'sell-color' if s.action == 'SELL' else 'neutral-color' %}
-                <div class="signal-card stocks {{ 'neutral' if is_hold else '' }}">
-                    <div class="card-header">
-                        <span class="signal-type {{ signal_class }}">{{ s.action }}</span>
-                        <span class="asset-category">{{ s.category }}</span>
-                    </div>
-                    <div class="asset-info">
-                        <h3>{{ s.symbol }}</h3>
-                        <p>{{ s.name }}</p>
-                    </div>
-                    <div class="price-score" style="grid-template-columns: 1fr 1fr;">
-                        <div class="metric">
-                            <span class="value">{{ s.price if s.price is not none else '—' }}</span>
-                            <span class="label">Price</span>
-                        </div>
-                        <div class="metric">
-                            <span class="value neutral-color">{{ "%.0f"|format(s.confidence|default(55)) }}%</span>
-                            <span class="label">Confidence</span>
-                        </div>
-                    </div>
-                    <div class="confidence-meter-small">
-                        {% set conf = "%.0f"|format(s.confidence|default(55)) %}
-                        <div class="confidence-fill {{ 'positive' if is_buy else 'negative' if s.action == 'SELL' else 'neutral' }}" style="width: {{ conf }}%;"></div>
-                        <span class="confidence-value">{{ conf }}%</span>
-                    </div>
-                </div>
-                {% endfor %}
+            <div id="rlSignalsLoading" class="no-signals-placeholder rl-placeholder-soft">
+                <div class="loader" style="margin:0 auto 12px;"><div class="spin"></div></div>
+                <p>Fetching live snapshot and running the agent…</p>
             </div>
-        </div>
-        {% elif trained %}
-        <div class="no-signals-placeholder rl-placeholder-soft">
-            <i class="fas fa-chart-line"></i>
-            <p>Model ready. No live rows this load — try again shortly.</p>
+            <div id="rlSignalsError" class="rl-msg rl-msg--error" style="display:none;margin-top:12px;" role="alert"></div>
+            <div class="signal-grid" id="rlSignalsGrid" style="display:none;"></div>
+            <div id="rlSignalsEmpty" class="no-signals-placeholder rl-placeholder-soft" style="display:none;">
+                <i class="fas fa-chart-line"></i>
+                <p>No suggestions this round — prices or features may be unavailable. Retry in a moment.</p>
+            </div>
         </div>
         {% endif %}
     </div>
@@ -210,5 +183,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/rl_trading.js') }}?v=mm20260504autoui1" defer></script>
+<script src="{{ url_for('static', filename='js/rl_trading.js') }}?v=mm20260509rlasync1" defer></script>
 {% endblock %}

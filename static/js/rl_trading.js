@@ -199,5 +199,121 @@
         }
       }
     });
+
+    function escHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    var grid = document.getElementById("rlSignalsGrid");
+    var loadingEl = document.getElementById("rlSignalsLoading");
+    var errEl = document.getElementById("rlSignalsError");
+    var emptyEl = document.getElementById("rlSignalsEmpty");
+    if (grid && loadingEl) {
+      fetch("/api/rl/dashboard_signals", {
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, status: r.status, body: j };
+          });
+        })
+        .then(function (pack) {
+          loadingEl.style.display = "none";
+          var j = pack.body || {};
+          if (!pack.ok || !j.success) {
+            if (errEl) {
+              errEl.style.display = "block";
+              errEl.textContent =
+                (j && j.error) ||
+                "Could not load RL signals (HTTP " + pack.status + ").";
+            }
+            return;
+          }
+          var sigs = j.signals || [];
+          if (!sigs.length) {
+            if (emptyEl) emptyEl.style.display = "block";
+            return;
+          }
+          grid.style.display = "grid";
+          grid.innerHTML = sigs
+            .map(function (s) {
+              var act = String(s.action || "HOLD");
+              var isBuy = act === "BUY";
+              var isHold = act === "HOLD";
+              var sigCls = isBuy
+                ? "buy-color"
+                : act === "SELL"
+                  ? "sell-color"
+                  : "neutral-color";
+              var cardNeutral = isHold ? " neutral" : "";
+              var conf = Math.round(Number(s.confidence) || 55);
+              var fillCls = isBuy
+                ? "positive"
+                : act === "SELL"
+                  ? "negative"
+                  : "neutral";
+              var price =
+                s.price != null && s.price !== ""
+                  ? String(s.price)
+                  : "—";
+              var sym = escHtml(s.symbol || "—");
+              var nm = escHtml(s.name || s.symbol || "—");
+              var cat = escHtml(s.category || "");
+              var actEsc = escHtml(act);
+              var priceEsc = escHtml(price);
+              return (
+                '<div class="signal-card stocks' +
+                cardNeutral +
+                '">' +
+                '<div class="card-header">' +
+                '<span class="signal-type ' +
+                sigCls +
+                '">' +
+                actEsc +
+                "</span>" +
+                '<span class="asset-category">' +
+                cat +
+                "</span>" +
+                "</div>" +
+                '<div class="asset-info"><h3>' +
+                sym +
+                "</h3><p>" +
+                nm +
+                "</p></div>" +
+                '<div class="price-score" style="grid-template-columns: 1fr 1fr;">' +
+                '<div class="metric"><span class="value">' +
+                priceEsc +
+                '</span><span class="label">Price</span></div>' +
+                '<div class="metric"><span class="value neutral-color">' +
+                conf +
+                '%</span><span class="label">Confidence</span></div>' +
+                "</div>" +
+                '<div class="confidence-meter-small">' +
+                '<div class="confidence-fill ' +
+                fillCls +
+                '" style="width:' +
+                conf +
+                '%;"></div>' +
+                '<span class="confidence-value">' +
+                conf +
+                "%</span></div></div>"
+              );
+            })
+            .join("");
+        })
+        .catch(function () {
+          loadingEl.style.display = "none";
+          if (errEl) {
+            errEl.style.display = "block";
+            errEl.textContent = "Network error loading RL signals.";
+          }
+        });
+    }
   });
 })();
