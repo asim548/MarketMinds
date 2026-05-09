@@ -419,8 +419,8 @@ def inject_user():
 def index():
     if not current_user.is_authenticated:
         return redirect(url_for('login'))
-    # Keep post-login path fast; FinancialPulse can be opened on demand from dashboard/nav.
-    return redirect(url_for("dashboard"))
+    # Default landing after sign-in: FinancialPulse (`financialpulse_ui` registered during FP integration).
+    return redirect("/financialpulse")
 
 @app.route('/api/auth_status')
 def auth_status():
@@ -435,7 +435,7 @@ def auth_status():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+        return redirect("/financialpulse")
 
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
@@ -454,7 +454,7 @@ def login():
         flash(f'Welcome back, {user.username}!', 'success')
 
         next_page = request.args.get('next')
-        return redirect(next_page) if next_page else redirect(url_for('dashboard'))
+        return redirect(next_page) if next_page else redirect("/financialpulse")
 
     return render_template('login.html')
 
@@ -504,13 +504,13 @@ def login_google_callback():
     login_user(user, remember=True)
     flash(f"Welcome, {user.username}!", "success")
     next_page = request.args.get("next")
-    return redirect(next_page) if next_page else redirect(url_for("dashboard"))
+    return redirect(next_page) if next_page else redirect("/financialpulse")
 
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+        return redirect("/financialpulse")
 
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
@@ -2029,8 +2029,9 @@ if __name__ == '__main__':
     _here = Path(__file__).resolve()
     print(f"\n{'='*55}")
     print(f"  Serving from: {_here.parent}")
-    print(f"  MarketMinds.ai  →  http://localhost:{port}/dashboard")
-    print(f"  FinancialPulse  →  http://localhost:{port}/financialpulse")
+    print(f"  After login      →  http://localhost:{port}/financialpulse  (default home)")
+    print(f"  Dashboard        →  http://localhost:{port}/dashboard")
+    print(f"  FinancialPulse   →  http://localhost:{port}/financialpulse")
     print(f"  RL agent        →  http://localhost:{port}/rl_trading  (alias: /rl_agent)")
     print(f"{'='*55}\n")
     # Must use socketio.run() — NOT app.run() — for WebSockets to work
