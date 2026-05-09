@@ -226,8 +226,8 @@ socketio = SocketIO(
     engineio_logger=False,
 )
 
-# Render runs a port probe shortly after starting the process; FinancialPulse imports ML stacks and can block for minutes.
-# Defer integration on Render (see integration block below) and gate normal routes until it completes so probes hit /health first.
+# Render: defer FP wiring so $PORT binds first. Event becomes set once FP HTTP/UI + /api/* clone exist — before Socket.IO
+# handlers finish (those can stall under eventlet; fp-loading polls this flag).
 _FP_INTEGRATION_READY = threading.Event()
 
 
@@ -322,9 +322,9 @@ body{font-family:system-ui,sans-serif;background:#0f1115;color:#e8eaef;display:f
 <p>Models and routes load in the background after deploy or cold start. This page refreshes automatically.</p>
 <p id="s">Checking readiness…</p></div>
 <script>
-async function tick(){try{const r=await fetch('/api/fp-ready');const j=await r.json();
+async function tick(){try{const r=await fetch('/api/fp-ready',{cache:'no-store'});const j=await r.json();
 if(j.ok){location.replace('/financialpulse');return;}
-document.getElementById('s').textContent='Still loading…';}catch(e){document.getElementById('s').textContent='Retrying…';}
+document.getElementById('s').textContent='Still loading…';}catch(e){document.getElementById('s').textContent='Network error — retrying…';}
 setTimeout(tick,1100);}tick();
 </script></body></html>"""
 
@@ -339,7 +339,9 @@ def fp_loading_gate():
 
 @app.route("/api/fp-ready")
 def fp_ready_json():
-    return jsonify(ok=_FP_INTEGRATION_READY.is_set())
+    resp = jsonify(ok=_FP_INTEGRATION_READY.is_set())
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 # Chart AI Configuration
@@ -1856,6 +1858,9 @@ def _integrate_financialpulse(app: Flask, socketio: SocketIO) -> None:
         print(f"[FinancialPulse] {routes_added} API routes integrated under /api/*")
     except Exception as e:
         print(f"[FinancialPulse] API integration warning: {e}")
+
+    # Release /fp-loading as soon as the FP page + APIs exist; Socket.IO wiring below can lag under eventlet workers.
+    _FP_INTEGRATION_READY.set()
 
     # ── Register Socket.IO event handlers from FP onto our socketio ──────────
     try:
