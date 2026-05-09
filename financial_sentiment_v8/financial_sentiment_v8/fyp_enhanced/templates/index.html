@@ -1076,17 +1076,29 @@ if (typeof _doFillMiniStats === 'undefined') {
     if (btRes  && !btRes.success  && btRes.error)  console.error('[fillMiniStats] Backend error (bt):', btRes.error);
     if (sigRes && !sigRes.success && sigRes.error) console.error('[fillMiniStats] Backend error (sig):', sigRes.error);
 
-    // ── Win Rate, P&L, Signals Generated ──
+    // ── Win Rate, P&L, Signals Generated (evaluated backtests DB — not same as news sentiment)
     if (btRes && btRes.success) {
+      const evaluated = btRes.total_signals_evaluated || 0;
+      const wins = btRes.wins || 0;
+      const losses = btRes.losses || 0;
       setTxt('mm-win-rate', ((btRes.win_ratio || 0) * 100).toFixed(1) + '%');
-      setTxt('mm-win-rate-sub', `${btRes.wins || 0}W / ${btRes.losses || 0}L evaluated`);
-      setCls('mm-win-rate-sub', (btRes.win_ratio || 0) >= 0.5 ? 'mm-mini-pos' : 'mm-mini-neg');
+      if (evaluated === 0 && wins === 0 && losses === 0) {
+        setTxt('mm-win-rate-sub', 'No closed evaluations yet · scheduler evaluates ~24h after signals');
+        setCls('mm-win-rate-sub', 'mm-mini-neg');
+      } else {
+        setTxt('mm-win-rate-sub', `${wins}W / ${losses}L evaluated`);
+        setCls('mm-win-rate-sub', (btRes.win_ratio || 0) >= 0.5 ? 'mm-mini-pos' : 'mm-mini-neg');
+      }
       const pnl = btRes.total_pnl || 0;
       setTxt('mm-total-pnl', `${pnl >= 0 ? '+$' : '-$'}${Math.abs(pnl).toLocaleString(undefined, {maximumFractionDigits: 2})}`);
-      setTxt('mm-pnl-sub', `Return: ${(btRes.total_return_pct || 0).toFixed(2)}%`);
+      if (evaluated === 0) {
+        setTxt('mm-pnl-sub', 'Backtest P&L fills after first evaluated signals');
+      } else {
+        setTxt('mm-pnl-sub', `Return: ${(btRes.total_return_pct || 0).toFixed(2)}%`);
+      }
       setCls('mm-pnl-sub', pnl >= 0 ? 'mm-mini-pos' : 'mm-mini-neg');
       setTxt('mm-signals-count', String(btRes.total_signals_generated || 0));
-      setTxt('mm-signals-sub', `${btRes.total_signals_evaluated || 0} evaluated · ${btRes.pending_signals || 0} pending`);
+      setTxt('mm-signals-sub', `${evaluated} evaluated · ${btRes.pending_signals || 0} pending`);
     } else {
       ['mm-win-rate','mm-total-pnl','mm-signals-count'].forEach(id => setTxt(id, 'N/A'));
     }

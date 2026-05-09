@@ -1216,22 +1216,35 @@ async function _doFillMiniStats() {
   if (sigRes && !sigRes.success && sigRes.error) console.error('[fillMiniStats] Backend error (sig):', sigRes.error);
 
   if (btRes && btRes.success) {
-    // ── Signal Win Rate ──
+    const evaluated = btRes.total_signals_evaluated || 0;
+    const wins = btRes.wins || 0;
+    const losses = btRes.losses || 0;
+
+    // ── Signal Win Rate (DB backtests — not live news sentiment) ──
     const winPct = ((btRes.win_ratio || 0) * 100).toFixed(1);
     setTxt('mm-win-rate', winPct + '%');
-    setTxt('mm-win-rate-sub', `${btRes.wins || 0}W / ${btRes.losses || 0}L evaluated`);
-    setCls('mm-win-rate-sub', (btRes.win_ratio || 0) >= 0.5 ? 'mm-mini-pos' : 'mm-mini-neg');
+    if (evaluated === 0 && wins === 0 && losses === 0) {
+      setTxt('mm-win-rate-sub', 'No closed evaluations yet · scheduler evaluates ~24h after signals');
+      setCls('mm-win-rate-sub', 'mm-mini-neg');
+    } else {
+      setTxt('mm-win-rate-sub', `${wins}W / ${losses}L evaluated`);
+      setCls('mm-win-rate-sub', (btRes.win_ratio || 0) >= 0.5 ? 'mm-mini-pos' : 'mm-mini-neg');
+    }
 
     // ── Signal PnL ──
     const pnl = btRes.total_pnl || 0;
     setTxt('mm-total-pnl', `${pnl >= 0 ? '+$' : '-$'}${Math.abs(pnl).toLocaleString(undefined, {maximumFractionDigits: 2})}`);
     const retPct = (btRes.total_return_pct || 0).toFixed(2);
-    setTxt('mm-pnl-sub', `Return: ${retPct}%`);
+    if (evaluated === 0) {
+      setTxt('mm-pnl-sub', 'Backtest P&L fills after first evaluated signals');
+    } else {
+      setTxt('mm-pnl-sub', `Return: ${retPct}%`);
+    }
     setCls('mm-pnl-sub', pnl >= 0 ? 'mm-mini-pos' : 'mm-mini-neg');
 
     // ── Signals Generated ──
     setTxt('mm-signals-count', String(btRes.total_signals_generated || 0));
-    setTxt('mm-signals-sub', `${btRes.total_signals_evaluated || 0} evaluated · ${btRes.pending_signals || 0} pending`);
+    setTxt('mm-signals-sub', `${evaluated} evaluated · ${btRes.pending_signals || 0} pending`);
   } else {
     ['mm-win-rate','mm-total-pnl','mm-signals-count'].forEach(id => setTxt(id, 'N/A'));
   }
