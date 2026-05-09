@@ -26,6 +26,13 @@ runs/
 static/uploads/
 static/results/
 financial_sentiment_v8/financial_sentiment_v8/fyp_enhanced/financialpulse.db*
+
+# RL: ship canonical rl_agent.pth + rl_scaler.pkl + JSON meta in repo; ignore timestamped duplicates / churn.
+rl/models/rl_agent_*.pth
+rl/models/rl_scaler_*.pkl
+rl/models/training_log.txt
+rl/models/rl_equity_curve.png
+
 *.png
 *.jpg
 *.jpeg

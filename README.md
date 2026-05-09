@@ -102,7 +102,8 @@ python app.py
 ## Deployment Readiness
 
 - Keep secrets in environment variables (never commit `.env`).
-- Ensure model folders/artifacts are present on the target host (`models_unified`, RL models where required).
+- **Shipped in git:** `models_unified/*.pkl` (hybrid AI Picks stack) and `rl/models/rl_agent.pth` + `rl_scaler.pkl` + JSON sidecars (`current_agent.json`, metrics, digest). Timestamped RL checkpoints under `rl/models/rl_agent_*.pth` are gitignored—use training APIs or auto-train to refresh.
+- **Optional:** place `best.pt` in the project root for YOLO chart pattern recognition; without it, that page degrades gracefully.
 - Use a production process manager and configure persistent storage for DB/model state.
 - Confirm WebSocket compatibility in the target runtime for FinancialPulse updates.
 
