@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import joblib
 import numpy as np
 import pandas as pd
 
 from rl import RL_MODELS_DIR
-from rl.dqn_agent import DoubleDQNAgent
 from rl.production import resolve_checkpoint_paths
+
+if TYPE_CHECKING:
+    from rl.dqn_agent import DoubleDQNAgent
 
 ACTION_NAMES = {0: "HOLD", 1: "BUY", 2: "SELL"}
 
@@ -47,7 +49,9 @@ def rl_paths(base_dir: Path | None = None) -> dict[str, Path]:
 
 def load_agent_and_scaler(
     models_dir: Path | None = None,
-) -> tuple[DoubleDQNAgent | None, Any | None]:
+) -> tuple["DoubleDQNAgent | None", Any | None]:
+    from rl.dqn_agent import DoubleDQNAgent
+
     root = Path(models_dir) if models_dir else RL_MODELS_DIR
     ag_path, sc_path = resolve_checkpoint_paths(root)
     if ag_path is None or sc_path is None:
@@ -110,7 +114,7 @@ def compute_rl_signals(
     ai_predictor,
     market_data: list,
     live_economic_event: dict,
-    agent: DoubleDQNAgent,
+    agent: "DoubleDQNAgent",
     scaler,
 ) -> list[dict[str, Any]]:
     """Per-symbol HOLD/BUY/SELL from Double DQN on 37-dim state (34 scaled + flat portfolio)."""
