@@ -34,6 +34,13 @@ logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
+# When MarketMinds imports this module, set MARKETMINDS_FP_EMBEDDED=1 before import so we
+# defer heavy ML + APScheduler until the host worker has bound $PORT (avoids Render health
+# check "No open ports" / SIGTERM during cold start).
+_FP_EMBEDDED = os.environ.get("MARKETMINDS_FP_EMBEDDED", "").strip().lower() in ("1", "true", "yes")
+_fp_ml_lock = threading.Lock()
+_fp_ml_boot_done = False
+
 from .models import (
     db,
     enable_wal_mode,
@@ -60,13 +67,36 @@ from .utils.automated_backtesting import (
     evaluate_pending_signals,
     get_backtesting_summary,
 )
-from .utils.pretrained_hybrid import load_pretrained_models
+# hybrid / ml_engine imported inside ensure_fp_ml_ready when needed (keeps embedded import fast).
 
-# ── Pre-load ML models in background ─────────────────────────────────────────
-from .utils.ml_engine import startup_load_models
-startup_load_models()
-hybrid_load_state = load_pretrained_models()
-logger.info(f"[HybridModels] Load status: {hybrid_load_state}")
+hybrid_load_state: dict = {}
+
+
+def ensure_fp_ml_ready() -> dict:
+    """Load FP hybrid stack once. No-op when already loaded (standalone or embedded)."""
+    global hybrid_load_state, _fp_ml_boot_done
+    if _fp_ml_boot_done:
+        return hybrid_load_state
+    with _fp_ml_lock:
+        if _fp_ml_boot_done:
+            return hybrid_load_state
+        from .utils.ml_engine import startup_load_models
+        from .utils.pretrained_hybrid import load_pretrained_models
+
+        startup_load_models()
+        hybrid_load_state = load_pretrained_models()
+        logger.info(f"[HybridModels] Load status: {hybrid_load_state}")
+        _fp_ml_boot_done = True
+        return hybrid_load_state
+
+
+if _FP_EMBEDDED:
+    hybrid_load_state = {"ready": False, "embedded_deferred": True}
+    logger.info(
+        "[HybridModels] Deferred (MARKETMINDS_FP_EMBEDDED) — load on first FP request or scheduler tick."
+    )
+else:
+    ensure_fp_ml_ready()
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -211,6 +241,7 @@ SOURCE_AUTHORITY = {
 
 def _full_refresh():
     global _last_pushed_prices, _last_pushed_news_ids
+    ensure_fp_ml_ready()
     logger.info("[Scheduler] Running full refresh...")
     news   = fetch_all_news(force=True)
     prices = fetch_prices(force=True)
@@ -255,6 +286,7 @@ def _full_refresh():
 
 
 def _scheduled_auto_backtest_eval():
+    ensure_fp_ml_ready()
     with app.app_context():
         result = evaluate_pending_signals(db.session, wait_hours=24)
     logger.info(f"[AutoBacktest] Scheduled evaluator result: {result}")
@@ -270,8 +302,30 @@ scheduler.add_job(
     id="auto_backtest_eval",
     replace_existing=True,
 )
-scheduler.start()
-threading.Thread(target=lambda: (time.sleep(2), _full_refresh()), daemon=True).start()
+
+_fp_scheduler_started = False
+_fp_scheduler_lock = threading.Lock()
+
+
+def start_financialpulse_scheduler() -> None:
+    """Start APScheduler + initial refresh thread. No-op if already started."""
+    global _fp_scheduler_started
+    with _fp_scheduler_lock:
+        if _fp_scheduler_started:
+            return
+        scheduler.start()
+        threading.Thread(target=lambda: (time.sleep(2), _full_refresh()), daemon=True).start()
+        _fp_scheduler_started = True
+        logger.info("[Scheduler] APScheduler started.")
+
+
+if _FP_EMBEDDED:
+    logger.info(
+        "[Scheduler] Deferred until start_financialpulse_scheduler() "
+        "(MarketMinds calls this after binding $PORT)."
+    )
+else:
+    start_financialpulse_scheduler()
 
 
 # ── Socket.IO ─────────────────────────────────────────────────────────────────

@@ -52,6 +52,11 @@ try:
 except ImportError:
     pass
 
+# FinancialPulse is imported into this process — defer FP hybrid ML + APScheduler until after bind
+# (see fyp_enhanced/app.py). Avoids Render "No open ports" / SIGTERM while the worker is still booting.
+if os.environ.get("MARKETMINDS_FP_EMBEDDED", "").strip().lower() not in ("0", "false", "no"):
+    os.environ["MARKETMINDS_FP_EMBEDDED"] = "1"
+
 # Database imports (SQLite)
 from database import db, User
 from database.db_config import DatabaseConfig
@@ -1934,6 +1939,10 @@ def _integrate_financialpulse(app: Flask, socketio: SocketIO) -> None:
         @socketio.on('connect')
         def on_connect():
             from flask_socketio import emit
+            try:
+                fp.ensure_fp_ml_ready()
+            except Exception:
+                pass
             from financial_sentiment_v8.financial_sentiment_v8.fyp_enhanced.utils.price_fetcher import get_cached_prices
             from financial_sentiment_v8.financial_sentiment_v8.fyp_enhanced.utils.news_fetcher import get_cached_news
             prices = get_cached_prices()
@@ -1954,6 +1963,27 @@ def _integrate_financialpulse(app: Flask, socketio: SocketIO) -> None:
         print("[FinancialPulse] Socket.IO event handlers registered [ok]")
     except Exception as e:
         print(f"[FinancialPulse] Socket.IO handlers warning: {e}")
+
+    # Lazy-load FP hybrid stack on first FP UI or cloned API hit (embedded mode).
+    @app.before_request
+    def _financialpulse_embedded_lazy_ml():
+        ep = getattr(request, "endpoint", None) or ""
+        p = request.path or ""
+        if ep.startswith("financialpulse__") or p.startswith("/financialpulse"):
+            try:
+                fp.ensure_fp_ml_ready()
+            except Exception as e:
+                print(f"[FinancialPulse] lazy ML warning: {e}")
+
+    # Start FP background scheduler after the host worker can accept traffic (Render health check).
+    def _defer_fp_scheduler_start():
+        time.sleep(5)
+        try:
+            fp.start_financialpulse_scheduler()
+        except Exception as e:
+            print(f"[FinancialPulse] deferred scheduler start: {e}")
+
+    threading.Thread(target=_defer_fp_scheduler_start, daemon=True, name="fp-scheduler-defer").start()
 
 
 def _should_integrate_financialpulse_on_boot() -> bool:
