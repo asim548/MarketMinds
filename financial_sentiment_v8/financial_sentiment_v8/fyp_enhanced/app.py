@@ -6,6 +6,7 @@ Upgrades: Socket.IO WebSockets, AI signals, priority news, backtesting UI,
 
 import os, json, logging, threading, time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO, emit
 from dotenv import load_dotenv
@@ -101,10 +102,17 @@ else:
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "financialpulse.db")
-app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
+# SQLite path: default next to this file; override with FINANCIALPULSE_SQLITE_PATH for Render disks etc.
+_fp_db_env = (os.environ.get("FINANCIALPULSE_SQLITE_PATH") or "").strip()
+if _fp_db_env:
+    DB_PATH = str(Path(_fp_db_env).expanduser().resolve())
+else:
+    DB_PATH = str(Path(__file__).resolve().parent / "financialpulse.db")
+Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
+app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{Path(DB_PATH).resolve().as_posix()}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "fp4-secret-2026")
+logger.info("[DB] FinancialPulse SQLite path: %s", DB_PATH)
 
 # ── CRITICAL: Guard against double init_app when MarketMinds parent
 #    app also registers the same db instance. Only init once per app.
