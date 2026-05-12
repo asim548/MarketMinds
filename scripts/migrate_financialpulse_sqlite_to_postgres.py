@@ -153,6 +153,14 @@ def _reset_serial(pg, table: str) -> None:
 
 
 def main() -> int:
+    repo_root = Path(__file__).resolve().parent.parent
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(repo_root / ".env")
+    except ImportError:
+        pass
+
     p = argparse.ArgumentParser(description="Migrate FinancialPulse SQLite to Postgres.")
     p.add_argument(
         "--sqlite",
