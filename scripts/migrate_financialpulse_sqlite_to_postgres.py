@@ -60,12 +60,77 @@ _FP_TABLES_INSERT = (
     "evaluation_snapshots",
 )
 
+# libpq URI query keys only (see PostgreSQL "Connection URIs"); drop anything else.
+_PG_URI_QUERY_KEYS = frozenset(
+    k.lower()
+    for k in (
+        "host",
+        "hostaddr",
+        "port",
+        "dbname",
+        "user",
+        "password",
+        "passfile",
+        "connect_timeout",
+        "client_encoding",
+        "options",
+        "application_name",
+        "fallback_application_name",
+        "keepalives",
+        "keepalives_idle",
+        "keepalives_interval",
+        "keepalives_count",
+        "tcp_user_timeout",
+        "replication",
+        "gssencmode",
+        "sslmode",
+        "ssl",
+        "sslcompression",
+        "sslcert",
+        "sslkey",
+        "sslrootcert",
+        "sslcrl",
+        "sslcrldir",
+        "sslsni",
+        "requirepeer",
+        "ssl_min_protocol_version",
+        "ssl_max_protocol_version",
+        "krbsrvname",
+        "gsslib",
+        "service",
+        "target_session_attrs",
+        "load_balance_hosts",
+    )
+)
+
+
+def _normalize_raw_database_url(raw: str) -> str:
+    """Undo common .env paste mistakes before urlsplit/psycopg2."""
+    u = (raw or "").strip().strip('"').strip("'")
+    for prefix in ("MARKETMINDS_DATABASE_URL=", "DATABASE_URL=", "FINANCIALPULSE_DATABASE_URL="):
+        while u.upper().startswith(prefix.upper()):
+            u = u[len(prefix) :].strip()
+    return u
+
 
 def _pg_url(raw: str) -> str:
-    u = raw.strip().replace("postgres://", "postgresql://", 1)
+    u = _normalize_raw_database_url(raw).replace("postgres://", "postgresql://", 1)
     try:
         parts = urlsplit(u)
-        q = dict(parse_qsl(parts.query, keep_blank_values=True))
+        q_pairs = parse_qsl(parts.query, keep_blank_values=True)
+        q: dict[str, str] = {}
+        dropped: list[str] = []
+        for k, v in q_pairs:
+            kl = k.lower()
+            if kl in _PG_URI_QUERY_KEYS:
+                q[kl] = v
+            else:
+                dropped.append(k)
+        if dropped:
+            print(
+                f"[warn] Removed invalid DSN query key(s) (not libpq options): {', '.join(dropped)}",
+                flush=True,
+            )
         if "sslmode" not in q and "ssl" not in q:
             q["sslmode"] = "require"
         if "connect_timeout" not in q:
