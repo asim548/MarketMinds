@@ -82,12 +82,25 @@ def _fp_resolve_postgres_candidate() -> str:
     explicit = (os.environ.get("FINANCIALPULSE_DATABASE_URL") or "").strip()
     if explicit:
         return explicit
-    if (os.environ.get("FINANCIALPULSE_USE_MARKETMINDS_POSTGRES") or "").strip().lower() in (
+    if (os.environ.get("FINANCIALPULSE_FORCE_SQLITE") or "").strip().lower() in ("1", "true", "yes"):
+        return ""
+    mm_pg = (os.environ.get("MARKETMINDS_DATABASE_URL") or os.environ.get("DATABASE_URL") or "").strip()
+    if not mm_pg.startswith(("postgres://", "postgresql://")):
+        return ""
+    use_flag = (os.environ.get("FINANCIALPULSE_USE_MARKETMINDS_POSTGRES") or "").strip().lower() in (
         "1",
         "true",
         "yes",
-    ):
-        return (os.environ.get("MARKETMINDS_DATABASE_URL") or os.environ.get("DATABASE_URL") or "").strip()
+    )
+    # Short alias (some dashboards truncate long keys in the UI)
+    use_flag = use_flag or (os.environ.get("FINANCIALPULSE_USE_MM_POSTGRES") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    embedded = (os.environ.get("MARKETMINDS_FP_EMBEDDED") or "").strip().lower() in ("1", "true", "yes")
+    if use_flag or embedded:
+        return mm_pg
     return ""
 
 
