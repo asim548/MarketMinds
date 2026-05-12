@@ -64,6 +64,22 @@ def _fp_pg_connect_timeout(url: str, seconds: int = 5) -> str:
         return url
 
 
+def _fp_pg_prepare_uri(url: str) -> str:
+    """Normalize Render / managed Postgres URLs: timeouts, SSL mode, stable TLS handshakes."""
+    try:
+        parts = urlsplit(url)
+        q = dict(parse_qsl(parts.query, keep_blank_values=True))
+        if "connect_timeout" not in q:
+            q["connect_timeout"] = "5"
+        # Render Postgres expects TLS; missing sslmode contributes to intermittent
+        # psycopg2 "SSL error: decryption failed or bad record mac" on pooled reuse.
+        if (os.environ.get("RENDER") or "").strip() and "sslmode" not in q and "ssl" not in q:
+            q["sslmode"] = "require"
+        return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(q), parts.fragment))
+    except Exception:
+        return _fp_pg_connect_timeout(url)
+
+
 def _fp_postgres_driver_available() -> bool:
     try:
         import psycopg2  # noqa: F401
@@ -176,7 +192,13 @@ DB_PATH: str | None = None
 _pg_candidate = _fp_resolve_postgres_candidate()
 if _pg_candidate.startswith(("postgres://", "postgresql://")) and _fp_postgres_driver_available():
     uri = _pg_candidate.replace("postgres://", "postgresql://", 1)
-    app.config["SQLALCHEMY_DATABASE_URI"] = _fp_pg_connect_timeout(uri)
+    app.config["SQLALCHEMY_DATABASE_URI"] = _fp_pg_prepare_uri(uri)
+    # Recycle pooled connections before managed Postgres idle cutoff; pre-ping avoids
+    # serving a dead TLS socket (OperationalError / bad record mac) to the app.
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_pre_ping": True,
+        "pool_recycle": 280,
+    }
     logger.info(
         "[DB] FinancialPulse PostgreSQL: %s",
         _fp_redact_database_uri(app.config["SQLALCHEMY_DATABASE_URI"]),
