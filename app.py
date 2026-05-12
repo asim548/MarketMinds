@@ -2046,7 +2046,17 @@ def _should_start_rl_auto_train_thread() -> bool:
     return True
 
 
-log_startup_dataset_status(Path(__file__).resolve().parent)
+def _bootstrap_rl_csvs_background() -> None:
+    """Avoid blocking Gunicorn worker import on large RL CSV downloads (Render health / 502)."""
+    try:
+        log_startup_dataset_status(Path(__file__).resolve().parent)
+    except Exception as e:
+        print(f"[RL data] background bootstrap error: {e}")
+
+
+threading.Thread(
+    target=_bootstrap_rl_csvs_background, daemon=True, name="rl-csv-bootstrap"
+).start()
 if _should_start_rl_auto_train_thread():
     _ensure_rl_auto_train_thread()
 elif _railway_env:
@@ -2059,10 +2069,10 @@ if __name__ == '__main__':
     _here = Path(__file__).resolve()
     print(f"\n{'='*55}")
     print(f"  Serving from: {_here.parent}")
-    print(f"  After login      →  http://localhost:{port}/financialpulse  (default home)")
-    print(f"  Dashboard        →  http://localhost:{port}/dashboard")
-    print(f"  FinancialPulse   →  http://localhost:{port}/financialpulse")
-    print(f"  RL agent        →  http://localhost:{port}/rl_trading  (alias: /rl_agent)")
+    print(f"  After login      ->  http://localhost:{port}/financialpulse  (default home)")
+    print(f"  Dashboard        ->  http://localhost:{port}/dashboard")
+    print(f"  FinancialPulse   ->  http://localhost:{port}/financialpulse")
+    print(f"  RL agent         ->  http://localhost:{port}/rl_trading  (alias: /rl_agent)")
     print(f"{'='*55}\n")
     # Must use socketio.run() — NOT app.run() — for WebSockets to work
     socketio.run(app, debug=False, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
