@@ -16,8 +16,10 @@ Usage (PowerShell):
     --sqlite "financial_sentiment_v8/financial_sentiment_v8/fyp_enhanced/financialpulse.db" `
     --truncate-fp --yes
 
-Omit --truncate-fp to only INSERT with ON CONFLICT DO NOTHING (OK for empty
-Postgres FP tables; risky if IDs/uids already differ).
+Render's web app may write the same Postgres while you migrate; that can cause
+deadlocks on large inserts. This script commits in batches and retries deadlocks.
+If migration still fails, temporarily scale the Render **Web Service** to 0 instances,
+run the script, then scale back up.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ import argparse
 import os
 import sqlite3
 import sys
+import time
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -94,6 +97,8 @@ def _copy_table(
     pg,
     table: str,
     truncate_mode: bool,
+    batch_size: int = 200,
+    deadlock_retries: int = 15,
 ) -> int:
     s_cur = sl.cursor()
     s_cols = _sqlite_columns(s_cur, table)
@@ -130,14 +135,34 @@ def _copy_table(
             conflict = ""
         sql = f'INSERT INTO "{table}" ({col_sql}) VALUES ({placeholders}) {conflict}'.strip()
 
+    from psycopg2 import errors as pg_errors
+
     s_cur.execute(f'SELECT {col_sql} FROM "{table}"')
     rows = s_cur.fetchall()
     if not rows:
         return 0
 
-    with pg.cursor() as p:
-        p.executemany(sql, rows)
-    return len(rows)
+    total = len(rows)
+    bs = max(50, min(batch_size, 2000))
+    inserted = 0
+    for start in range(0, total, bs):
+        chunk = rows[start : start + bs]
+        for attempt in range(deadlock_retries):
+            try:
+                with pg.cursor() as p:
+                    p.executemany(sql, chunk)
+                pg.commit()
+                inserted += len(chunk)
+                break
+            except pg_errors.DeadlockDetected:
+                pg.rollback()
+                if attempt + 1 >= deadlock_retries:
+                    raise
+                time.sleep(min(2.0, 0.08 * (2**attempt)))
+            except Exception:
+                pg.rollback()
+                raise
+    return total
 
 
 def _reset_serial(pg, table: str) -> None:
@@ -190,6 +215,12 @@ def main() -> int:
         help="TRUNCATE only FinancialPulse tables on Postgres then copy (recommended for first migration).",
     )
     p.add_argument("-y", "--yes", action="store_true", help="Skip confirmation before TRUNCATE.")
+    p.add_argument(
+        "--batch-size",
+        type=int,
+        default=200,
+        help="Rows per INSERT batch (smaller + commits = fewer deadlocks vs live app). Default 200.",
+    )
     args = p.parse_args()
 
     sqlite_path = Path(args.sqlite).expanduser().resolve()
@@ -236,13 +267,19 @@ def main() -> int:
                 names = ", ".join(f'"{t}"' for t in _FP_TABLES_TRUNCATE)
                 c.execute(f"TRUNCATE TABLE {names} RESTART IDENTITY CASCADE;")
             pg.commit()
-            print("[ok] Truncated FinancialPulse tables on Postgres.")
+            print("[ok] Truncated FinancialPulse tables on Postgres.", flush=True)
 
         total = 0
         for tbl in _FP_TABLES_INSERT:
-            n = _copy_table(sl, pg, tbl, truncate_mode=args.truncate_fp)
+            n = _copy_table(
+                sl,
+                pg,
+                tbl,
+                truncate_mode=args.truncate_fp,
+                batch_size=args.batch_size,
+            )
             total += n
-            print(f"[ok] {tbl}: {n} rows")
+            print(f"[ok] {tbl}: {n} rows", flush=True)
 
         pg.commit()
 
@@ -263,7 +300,10 @@ def main() -> int:
                     print(f"[warn] sequence reset {tbl}: {e}")
             pg.commit()
 
-        print(f"[done] Migrated {total} row-inserts (some may be no-ops without --truncate-fp).")
+        print(
+            f"[done] Migrated {total} row-inserts (some may be no-ops without --truncate-fp).",
+            flush=True,
+        )
     except Exception as e:
         pg.rollback()
         print(f"ERROR: {e}", file=sys.stderr)
