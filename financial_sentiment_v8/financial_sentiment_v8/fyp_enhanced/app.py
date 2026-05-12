@@ -7,6 +7,7 @@ Upgrades: Socket.IO WebSockets, AI signals, priority news, backtesting UI,
 import os, json, logging, threading, time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO, emit
 from dotenv import load_dotenv
@@ -34,6 +35,61 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def _fp_redact_database_uri(uri: str) -> str:
+    try:
+        parts = urlsplit(uri)
+        if "@" not in parts.netloc:
+            return uri
+        auth, host = parts.netloc.rsplit("@", 1)
+        if ":" in auth:
+            user, _pwd = auth.split(":", 1)
+            netloc = f"{user}:***@{host}"
+        else:
+            netloc = f"{auth}@{host}"
+        return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+    except Exception:
+        return "[database-uri-redacted]"
+
+
+def _fp_pg_connect_timeout(url: str, seconds: int = 5) -> str:
+    try:
+        parts = urlsplit(url)
+        q = dict(parse_qsl(parts.query, keep_blank_values=True))
+        if "connect_timeout" not in q:
+            q["connect_timeout"] = str(seconds)
+        return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(q), parts.fragment))
+    except Exception:
+        return url
+
+
+def _fp_postgres_driver_available() -> bool:
+    try:
+        import psycopg2  # noqa: F401
+
+        return True
+    except ImportError:
+        try:
+            import psycopg  # noqa: F401
+
+            return True
+        except ImportError:
+            return False
+
+
+def _fp_resolve_postgres_candidate() -> str:
+    explicit = (os.environ.get("FINANCIALPULSE_DATABASE_URL") or "").strip()
+    if explicit:
+        return explicit
+    if (os.environ.get("FINANCIALPULSE_USE_MARKETMINDS_POSTGRES") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        return (os.environ.get("MARKETMINDS_DATABASE_URL") or os.environ.get("DATABASE_URL") or "").strip()
+    return ""
+
 
 # When MarketMinds imports this module, set MARKETMINDS_FP_EMBEDDED=1 before import so we
 # defer heavy ML + APScheduler until the host worker has bound $PORT (avoids Render health
@@ -102,17 +158,32 @@ else:
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# SQLite path: default next to this file; override with FINANCIALPULSE_SQLITE_PATH for Render disks etc.
-_fp_db_env = (os.environ.get("FINANCIALPULSE_SQLITE_PATH") or "").strip()
-if _fp_db_env:
-    DB_PATH = str(Path(_fp_db_env).expanduser().resolve())
+# Database: PostgreSQL (e.g. same Render `marketminds-db` as MarketMinds) or SQLite file.
+DB_PATH: str | None = None
+_pg_candidate = _fp_resolve_postgres_candidate()
+if _pg_candidate.startswith(("postgres://", "postgresql://")) and _fp_postgres_driver_available():
+    uri = _pg_candidate.replace("postgres://", "postgresql://", 1)
+    app.config["SQLALCHEMY_DATABASE_URI"] = _fp_pg_connect_timeout(uri)
+    logger.info(
+        "[DB] FinancialPulse PostgreSQL: %s",
+        _fp_redact_database_uri(app.config["SQLALCHEMY_DATABASE_URI"]),
+    )
 else:
-    DB_PATH = str(Path(__file__).resolve().parent / "financialpulse.db")
-Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
-app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{Path(DB_PATH).resolve().as_posix()}"
+    if _pg_candidate.startswith(("postgres://", "postgresql://")) and not _fp_postgres_driver_available():
+        logger.warning(
+            "[DB] FinancialPulse: Postgres URL configured but psycopg2/psycopg is missing; using SQLite."
+        )
+    _fp_db_env = (os.environ.get("FINANCIALPULSE_SQLITE_PATH") or "").strip()
+    if _fp_db_env:
+        DB_PATH = str(Path(_fp_db_env).expanduser().resolve())
+    else:
+        DB_PATH = str(Path(__file__).resolve().parent / "financialpulse.db")
+    Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
+    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{Path(DB_PATH).resolve().as_posix()}"
+    logger.info("[DB] FinancialPulse SQLite path: %s", DB_PATH)
+
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "fp4-secret-2026")
-logger.info("[DB] FinancialPulse SQLite path: %s", DB_PATH)
 
 # ── CRITICAL: Guard against double init_app when MarketMinds parent
 #    app also registers the same db instance. Only init once per app.
@@ -714,8 +785,10 @@ def api_auto_backtest_summary():
         return jsonify({"success": True, **summary})
     except Exception as e:
         app.logger.error(f"[api_auto_backtest_summary] {e}", exc_info=True)
-        # Fallback: raw SQLite so the page still gets data
+        # Fallback: raw SQLite file (only when FP is not on PostgreSQL)
         try:
+            if not DB_PATH:
+                raise RuntimeError("SQLite fallback unavailable (FinancialPulse uses PostgreSQL)")
             import sqlite3 as _sq
             _asset = request.args.get("asset")
             _cap   = float(request.args.get("initial_capital", 10000))

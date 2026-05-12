@@ -1891,8 +1891,12 @@ def _integrate_financialpulse(app: Flask, socketio: SocketIO) -> None:
 
     # ── Log FP DB path ────────────────────────────────────────────────────────
     try:
-        fp_db_path = Path(fp.__file__).resolve().parent / "financialpulse.db"
-        print(f"[FinancialPulse] DB at: {fp_db_path}")
+        uri = fp.app.config.get("SQLALCHEMY_DATABASE_URI") or ""
+        if uri.startswith("sqlite"):
+            p = Path(uri.replace("sqlite:///", "")).resolve()
+            print(f"[FinancialPulse] DB (SQLite file): {p}")
+        else:
+            print(f"[FinancialPulse] DB (PostgreSQL): {DatabaseConfig.redact_database_uri(uri)}")
     except Exception as e:
         print(f"[FinancialPulse] DB path warning: {e}")
 
